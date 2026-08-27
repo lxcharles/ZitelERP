@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@media print {
+  /* Hide all non-printable chrome */
+  body * {
+    visibility: hidden;
+  }
+
+  .no-print,
+  nav,
+  header,
+  aside,
+  button,
+  .no-print * {
+    display: none !important;
+  }
+
+  /* Make printable report card visible and positioned at top-left */
+  .printable-card,
+  .printable-card * {
+    visibility: visible;
+  }
+
+  .printable-card {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 20mm 15mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Prevent page breaks inside cards, tables, and signatures */
+  table, tr, td, th, .printable-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+}
+
