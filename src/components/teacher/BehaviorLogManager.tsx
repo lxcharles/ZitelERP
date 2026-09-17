@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { User, Student, Class, BehaviorRecord, BehaviorStatusType, BehaviorCategory } from '../../types';
 import { db } from '../../services/db';
+import { BehaviorConcernTrendsChart } from '../behavior/BehaviorConcernTrendsChart';
 
 interface BehaviorLogManagerProps {
   currentUser: User;
@@ -47,6 +48,7 @@ export const BehaviorLogManager: React.FC<BehaviorLogManagerProps> = ({
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
+  const [showTrendChart, setShowTrendChart] = useState<boolean>(true);
 
   // Modal State
   const [showEntryModal, setShowEntryModal] = useState(false);
@@ -216,7 +218,7 @@ export const BehaviorLogManager: React.FC<BehaviorLogManagerProps> = ({
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
             <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-            Concern
+            Behavioral Concern
           </span>
         );
       case 'Incident':
@@ -253,13 +255,26 @@ export const BehaviorLogManager: React.FC<BehaviorLogManagerProps> = ({
             <div>
               <h2 className="text-xl font-black text-slate-900">Student Behavioral Log & Timeline</h2>
               <p className="text-xs text-slate-500 font-medium">
-                Document meaningful classroom conduct, pastoral observations, and student character progression for {activeClass.name}
+                Document meaningful classroom conduct, behavioral observations, and student character progression for {activeClass.name}
               </p>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowTrendChart(!showTrendChart)}
+            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all border ${
+              showTrendChart
+                ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+            }`}
+            id="btn-toggle-concern-d3-chart"
+          >
+            <TrendingUp className="w-4 h-4 text-rose-600" />
+            <span>{showTrendChart ? 'Hide D3 Trends' : 'View Concern Trajectory (D3)'}</span>
+          </button>
+
           <button
             onClick={() => handleOpenCreateModal()}
             className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
@@ -271,6 +286,19 @@ export const BehaviorLogManager: React.FC<BehaviorLogManagerProps> = ({
         </div>
       </div>
 
+      {/* D3 Behavioral Concern Weekly Trajectory & Escalation Triggers Chart */}
+      {showTrendChart && (
+        <div className="transition-all animate-fadeIn">
+          <BehaviorConcernTrendsChart
+            currentUser={currentUser}
+            classId={activeClass.id}
+            onSelectStudent={(studentId) => {
+              setSelectedStudentFilter(studentId);
+            }}
+          />
+        </div>
+      )}
+
       {/* Overview Stat Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
@@ -279,7 +307,7 @@ export const BehaviorLogManager: React.FC<BehaviorLogManagerProps> = ({
             <Tag className="w-4 h-4 text-indigo-500" />
           </div>
           <p className="text-2xl font-black text-slate-900 mt-2">{records.length}</p>
-          <span className="text-[10px] text-slate-400 font-medium">In {activeClass.name} cohort</span>
+          <span className="text-[10px] text-slate-400 font-medium">In {activeClass.name} class</span>
         </div>
 
         <div className="bg-white rounded-xl border border-emerald-200 bg-emerald-50/20 p-4 shadow-xs">
@@ -299,12 +327,12 @@ export const BehaviorLogManager: React.FC<BehaviorLogManagerProps> = ({
             <HelpCircle className="w-4 h-4 text-slate-500" />
           </div>
           <p className="text-2xl font-black text-slate-700 mt-2">{neutralCount}</p>
-          <span className="text-[10px] text-slate-400 font-medium">Standard pastoral checks</span>
+          <span className="text-[10px] text-slate-400 font-medium">Standard behavioral checks</span>
         </div>
 
         <div className="bg-white rounded-xl border border-amber-200 bg-amber-50/20 p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Areas of Concern</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Behavioral Concerns</span>
             <AlertTriangle className="w-4 h-4 text-amber-600" />
           </div>
           <p className="text-2xl font-black text-amber-700 mt-2">{concernCount}</p>
@@ -364,7 +392,7 @@ export const BehaviorLogManager: React.FC<BehaviorLogManagerProps> = ({
               <option value="ALL">All Conduct Statuses</option>
               <option value="Positive">Positive (Commendation)</option>
               <option value="Neutral">Neutral (General Observation)</option>
-              <option value="Concern">Concern (Academic / Habit)</option>
+              <option value="Concern">Behavioral Concern (Academic / Habit)</option>
               <option value="Incident">Incident (Rule Infraction)</option>
             </select>
           </div>
@@ -553,7 +581,7 @@ export const BehaviorLogManager: React.FC<BehaviorLogManagerProps> = ({
                                 {isExpanded ? (
                                   <>
                                     <ChevronUp className="w-3.5 h-3.5" />
-                                    <span>Hide Pastoral Details</span>
+                                    <span>Hide Behavioral Details</span>
                                   </>
                                 ) : (
                                   <>
@@ -620,7 +648,7 @@ export const BehaviorLogManager: React.FC<BehaviorLogManagerProps> = ({
                     {editingRecord ? 'Edit Behavioral Entry' : 'Create Student Behavioral Entry'}
                   </h3>
                   <p className="text-xs text-slate-500 font-medium">
-                    Record structured pastoral observations, conduct feedback, and merit points
+                    Record structured behavioral observations, conduct feedback, and merit points
                   </p>
                 </div>
               </div>
@@ -756,7 +784,7 @@ export const BehaviorLogManager: React.FC<BehaviorLogManagerProps> = ({
               {/* Detailed Comments */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Detailed Comments / Pastoral Context (Optional)
+                  Detailed Comments / Behavioral Context (Optional)
                 </label>
                 <textarea
                   rows={2}

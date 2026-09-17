@@ -5,8 +5,12 @@ import { Header } from './components/common/Header';
 import { Sidebar } from './components/common/Sidebar';
 import { GlobalSearchModal } from './components/common/GlobalSearchModal';
 import { ReportCardModal } from './components/common/ReportCardModal';
+import { AgentZEEChatWidget } from './components/common/AgentZEEChatWidget';
+import { FloatingBottomNav } from './components/common/FloatingBottomNav';
 import { LoginPage } from './components/auth/LoginPage';
+import { FirstTimePasswordModal } from './components/auth/FirstTimePasswordModal';
 import { SuperAdminDashboard } from './components/superadmin/SuperAdminDashboard';
+import { DirectorDashboard } from './components/director/DirectorDashboard';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { TeacherDashboard } from './components/teacher/TeacherDashboard';
 import { ParentDashboard } from './components/parent/ParentDashboard';
@@ -50,13 +54,6 @@ export function App() {
     };
   }, []);
 
-  const handleSwitchUser = (userId: string) => {
-    db.setCurrentUser(userId);
-    const u = db.getCurrentUser();
-    setCurrentUser(u);
-    setActiveTab('overview');
-  };
-
   const handleBranchChange = (branchId: string) => {
     db.setActiveBranchId(branchId);
     setActiveBranchId(branchId);
@@ -72,6 +69,18 @@ export function App() {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
 
+  // If user has a temporary password or must change password flag
+  if (currentUser.mustChangePassword) {
+    return (
+      <FirstTimePasswordModal
+        user={currentUser}
+        onPasswordChanged={(updatedUser) => {
+          setCurrentUser(updatedUser);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
       {/* Top Header */}
@@ -80,7 +89,7 @@ export function App() {
         activeBranchId={activeBranchId}
         onBranchChange={handleBranchChange}
         onSearchOpen={() => setIsSearchOpen(true)}
-        onSwitchUser={handleSwitchUser}
+        onOpenAuditLog={() => setActiveTab('audit_logs')}
       />
 
       {/* Main Workspace Layout */}
@@ -93,11 +102,19 @@ export function App() {
         />
 
         {/* Content Viewport */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto max-w-full">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-28 sm:pb-32 overflow-y-auto max-w-full">
           {currentUser.role === 'SUPER_ADMIN' && (
             <SuperAdminDashboard
               currentUser={currentUser}
               activeTab={activeTab}
+            />
+          )}
+
+          {currentUser.role === 'DIRECTOR' && (
+            <DirectorDashboard
+              currentUser={currentUser}
+              activeTab={activeTab}
+              onSelectTab={setActiveTab}
             />
           )}
 
@@ -150,6 +167,19 @@ export function App() {
           onClose={() => setSelectedStudentForReport(null)}
         />
       )}
+
+      {/* Smart Role-Aware Floating Bottom Navigation System */}
+      <FloatingBottomNav
+        currentUser={currentUser}
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+      />
+
+      {/* Global Agent ZEE Floating Technical Support Assistant Bubble */}
+      <AgentZEEChatWidget
+        currentUser={currentUser}
+        activeTab={activeTab}
+      />
     </div>
   );
 }

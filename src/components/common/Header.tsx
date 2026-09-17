@@ -1,27 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Bell,
   Search,
   LogOut,
   Shield,
-  User as UserIcon,
   ChevronDown,
-  Sparkles,
-  School,
   CheckCircle2,
   AlertCircle,
-  Building2,
-  MapPin,
-  Plus
+  X,
 } from 'lucide-react';
-import { User, NotificationItem, Branch } from '../../types';
+import { User } from '../../types';
 import { db } from '../../services/db';
+import { isSuperAdmin, isDirector } from '../../utils/roles';
+import { AdvancedAccountInfoSection } from './AdvancedAccountInfoSection';
 
 interface HeaderProps {
   currentUser: User;
   onSearchOpen: () => void;
-  onSwitchUser: (userId: string) => void;
   onNavigateToNotifications?: () => void;
+  onOpenAuditLog?: () => void;
   activeBranchId?: string;
   onBranchChange?: (branchId: string) => void;
   onOpenNewBranchModal?: () => void;
@@ -30,30 +27,28 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   currentUser,
   onSearchOpen,
-  onSwitchUser,
-  activeBranchId,
-  onBranchChange,
-  onOpenNewBranchModal,
+  onOpenAuditLog,
 }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showDemoSwitcher, setShowDemoSwitcher] = useState(false);
-  const [showBranchMenu, setShowBranchMenu] = useState(false);
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const school = db.getSchoolProfile();
-  const allUsers = db.getUsers();
-  const branches = db.getBranches();
-  
-  const currentBranchId = activeBranchId || db.getActiveBranchId();
-  const activeBranch = branches.find(b => b.id === currentBranchId);
+  useEffect(() => {
+    if (isSearchExpanded && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isSearchExpanded]);
 
   const notifications = db.getNotifications().filter(
-    n => n.userId === currentUser.id || currentUser.role === 'SUPER_ADMIN'
+    n => n.userId === currentUser.id || n.userId === 'all' || currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'DIRECTOR'
   );
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const roleColors: Record<string, string> = {
     SUPER_ADMIN: 'bg-purple-100 text-purple-800 border-purple-200',
+    DIRECTOR: 'bg-blue-100 text-blue-800 border-blue-200',
     ADMIN: 'bg-indigo-100 text-indigo-800 border-indigo-200',
     TEACHER: 'bg-emerald-100 text-emerald-800 border-emerald-200',
     PARENT: 'bg-amber-100 text-amber-800 border-amber-200',
@@ -62,258 +57,120 @@ export const Header: React.FC<HeaderProps> = ({
 
   const roleLabels: Record<string, string> = {
     SUPER_ADMIN: 'Super Admin',
-    ADMIN: 'Administrator',
-    TEACHER: 'Faculty / Teacher',
+    DIRECTOR: 'Director',
+    ADMIN: 'Branch Administrator',
+    TEACHER: 'Teaching Staff / Teacher',
     PARENT: 'Parent / Guardian',
     STUDENT: 'Student',
   };
 
-  const handleSelectBranch = (branchId: string) => {
-    db.setActiveBranchId(branchId);
-    if (onBranchChange) {
-      onBranchChange(branchId);
-    }
-    setShowBranchMenu(false);
-  };
-
-  const isBranchAuthorized = 
-    currentUser.role === 'SUPER_ADMIN' || 
-    currentUser.role === 'ADMIN' || 
-    currentUser.role === 'TEACHER' ||
-    Boolean(currentUser.permissions?.includes('manage_branches')) ||
-    currentUser.scope === 'ALL_SCHOOL';
-
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Left: School Logo ONLY */}
-          <div className="flex items-center">
+    <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-slate-200/70 shadow-xs">
+      {/* Click-outside backdrop to close dropdowns and search */}
+      {(showNotifications || showUserMenu || isSearchExpanded) && (
+        <div
+          className="fixed inset-0 z-40 bg-transparent"
+          onClick={() => {
+            setShowNotifications(false);
+            setShowUserMenu(false);
+            setIsSearchExpanded(false);
+          }}
+        />
+      )}
+
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16 gap-2 sm:gap-4">
+          {/* 1. Our Logo */}
+          <div className="flex items-center shrink-0">
             <img
               src="https://res.cloudinary.com/dehvk3bre/image/upload/v1782745354/20260304_140255_weozqy.png"
               alt="Zitel Castle School"
-              className="h-10 sm:h-12 w-auto max-h-12 object-contain shrink-0"
+              className="h-9 sm:h-11 w-auto max-h-12 object-contain shrink-0"
               referrerPolicy="no-referrer"
             />
           </div>
 
-          {/* Center & Right Actions */}
-          <div className="flex items-center space-x-2 sm:space-x-3">
-            {/* Global Branch Selector Dropdown (Super Admins & Authorized Staff) */}
-            {isBranchAuthorized ? (
-              <div className="relative">
-                <button
-                  id="header-branch-switcher-btn"
-                  onClick={() => {
-                    setShowBranchMenu(!showBranchMenu);
-                    setShowDemoSwitcher(false);
-                    setShowNotifications(false);
-                    setShowUserMenu(false);
-                  }}
-                  className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-900 text-white hover:bg-slate-800 text-xs sm:text-sm font-semibold shadow-xs transition-all border border-slate-700"
-                  title="Switch Active Campus / Branch"
-                >
-                  <Building2 className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span className="max-w-[130px] sm:max-w-[210px] truncate">
-                    {currentBranchId === 'all'
-                      ? 'All Branches (Consolidated)'
-                      : activeBranch?.name || 'Select Branch'}
-                  </span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-150 ${showBranchMenu ? 'rotate-180' : ''}`} />
-                </button>
-
-                {showBranchMenu && (
-                  <div className="absolute left-0 sm:right-0 sm:left-auto mt-2 w-80 sm:w-88 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
-                    <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                          Branch / Campus Selector
-                        </p>
-                        <p className="text-[11px] text-slate-400">Toggle active school branch</p>
-                      </div>
-                      {currentUser.role === 'SUPER_ADMIN' && onOpenNewBranchModal && (
-                        <button
-                          onClick={() => {
-                            setShowBranchMenu(false);
-                            onOpenNewBranchModal();
-                          }}
-                          className="flex items-center space-x-1 text-xs font-bold text-indigo-600 hover:text-indigo-700 px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Add Campus</span>
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="py-1">
-                      {/* Individual School Campuses */}
-                      <div className="px-4 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/70 border-y border-slate-100 my-1">
-                        Campuses ({branches.length})
-                      </div>
-
-                      {branches.map(branch => (
-                        <button
-                          key={branch.id}
-                          id={`branch-select-${branch.id}`}
-                          onClick={() => handleSelectBranch(branch.id)}
-                          className={`w-full text-left px-4 py-2.5 flex items-center space-x-3 hover:bg-slate-50 transition-colors ${
-                            currentBranchId === branch.id
-                              ? 'bg-indigo-50/90 font-bold text-indigo-900 border-l-4 border-indigo-600'
-                              : 'text-slate-700'
-                          }`}
-                        >
-                          <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-800 flex items-center justify-center font-bold text-xs shrink-0">
-                            {branch.code.split('-')[1] || 'BR'}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs font-bold truncate text-slate-900">{branch.name}</p>
-                              <span className="text-[9px] px-1.5 py-0.2 rounded font-semibold uppercase bg-emerald-100 text-emerald-800 shrink-0 ml-1">
-                                {branch.status}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-slate-500 truncate flex items-center space-x-1 mt-0.5">
-                              <MapPin className="w-3 h-3 shrink-0 text-slate-400" />
-                              <span className="truncate">{branch.address}</span>
-                            </p>
-                          </div>
-                          {currentBranchId === branch.id && (
-                            <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0 ml-1" />
-                          )}
-                        </button>
-                      ))}
-
-                      {/* All Branches Option (for Super Admin or authorized multi-branch staff) */}
-                      {(currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'ADMIN') && (
-                        <>
-                          <div className="px-4 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/70 border-y border-slate-100 my-1">
-                            Consolidated View
-                          </div>
-                          <button
-                            id="branch-select-all"
-                            onClick={() => handleSelectBranch('all')}
-                            className={`w-full text-left px-4 py-2.5 flex items-center space-x-3 hover:bg-slate-50 transition-colors ${
-                              currentBranchId === 'all'
-                                ? 'bg-indigo-50/90 font-bold text-indigo-900 border-l-4 border-indigo-600'
-                                : 'text-slate-700'
-                            }`}
-                          >
-                            <div className="w-8 h-8 rounded-lg bg-slate-900 text-amber-400 flex items-center justify-center font-bold text-xs shrink-0">
-                              HQ
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-bold truncate">All Branches (Consolidated Analytics)</p>
-                              <p className="text-[11px] text-slate-500 truncate">Combined data across Bungalow & Ijegun</p>
-                            </div>
-                            {currentBranchId === 'all' && (
-                              <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0 ml-1" />
-                            )}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : currentUser.branchName ? (
-              <div className="hidden sm:flex items-center space-x-1.5 px-3 py-1 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold">
-                <MapPin className="w-3.5 h-3.5 text-indigo-600" />
-                <span className="truncate max-w-[160px]">{currentUser.branchName}</span>
-              </div>
-            ) : null}
-
-            {/* Quick Global Search */}
-            <button
-              id="header-search-btn"
-              onClick={onSearchOpen}
-              className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-600 hover:text-slate-900 text-xs sm:text-sm font-medium transition-colors border border-slate-200/80"
-              title="Search system (Ctrl+K)"
+          {/* 2. Revealed Search Column (When Search Icon is Clicked) */}
+          {isSearchExpanded && (
+            <div
+              id="header-search-column"
+              className="flex-1 max-w-xl mx-2 sm:mx-6 md:mx-8 relative z-50 animate-in fade-in zoom-in-95 duration-150"
             >
-              <Search className="w-4 h-4 text-slate-400" />
-              <span className="hidden md:inline">Search...</span>
-              <kbd className="hidden lg:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-white text-slate-500 rounded border border-slate-200">
-                ⌘K
-              </kbd>
-            </button>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  onSearchOpen();
+                }}
+                className="flex items-center w-full px-3 sm:px-4 py-2 rounded-xl bg-slate-100/95 border border-purple-300/80 shadow-xs ring-2 ring-purple-500/20"
+              >
+                <Search className="w-4 h-4 text-purple-600 shrink-0 mr-2.5" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setIsSearchExpanded(false);
+                    }
+                  }}
+                  placeholder="Search students, staff, classes, records..."
+                  className="w-full bg-transparent text-xs sm:text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-hidden"
+                />
+                <div className="flex items-center space-x-1 shrink-0 ml-2">
+                  <button
+                    type="button"
+                    onClick={onSearchOpen}
+                    className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono font-bold bg-white text-slate-600 rounded border border-slate-200 hover:bg-slate-50 cursor-pointer shadow-2xs"
+                    title="Open full global search results (Enter or ⌘K)"
+                  >
+                    ⌘K
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSearchExpanded(false);
+                      setSearchQuery('');
+                    }}
+                    className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200/70 transition-colors cursor-pointer"
+                    title="Close search bar"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
 
-            {/* Quick Demo Switcher Button */}
-            <div className="relative">
+          {/* Right Action Icons: Search Icon (when collapsed), Notifications, Profile */}
+          <div className="flex items-center space-x-1.5 sm:space-x-3 shrink-0">
+            {/* Search Icon Trigger (Visible when search column is collapsed) */}
+            {!isSearchExpanded && (
               <button
-                id="header-demo-switcher-btn"
+                id="header-search-icon-btn"
+                type="button"
                 onClick={() => {
-                  setShowDemoSwitcher(!showDemoSwitcher);
+                  setIsSearchExpanded(true);
                   setShowNotifications(false);
                   setShowUserMenu(false);
-                  setShowBranchMenu(false);
                 }}
-                className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 hover:from-indigo-100 hover:to-purple-100 border border-indigo-200 text-xs font-semibold shadow-2xs transition-all"
+                className="p-2 rounded-xl text-slate-600 hover:text-purple-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Search platform (Ctrl+K or ⌘K)"
               >
-                <Sparkles className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
-                <span className="hidden sm:inline">Role Switcher</span>
-                <ChevronDown className="w-3.5 h-3.5" />
+                <Search className="w-5 h-5" />
               </button>
+            )}
 
-              {/* Demo Switcher Dropdown */}
-              {showDemoSwitcher && (
-                <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
-                  <div className="px-4 py-2 border-b border-slate-100">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Switch Role Context (Test Workflows)
-                    </p>
-                  </div>
-                  <div className="max-h-80 overflow-y-auto py-1 divide-y divide-slate-50">
-                    {allUsers.map(u => (
-                      <button
-                        key={u.id}
-                        onClick={() => {
-                          onSwitchUser(u.id);
-                          setShowDemoSwitcher(false);
-                        }}
-                        className={`w-full text-left px-4 py-2.5 flex items-center space-x-3 hover:bg-slate-50 transition-colors ${
-                          u.id === currentUser.id ? 'bg-indigo-50/70' : ''
-                        }`}
-                      >
-                        <img
-                          src={u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120'}
-                          alt={u.name}
-                          className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-200"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm font-semibold text-slate-800 truncate">
-                              {u.name}
-                            </p>
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${roleColors[u.role]}`}>
-                              {roleLabels[u.role]}
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-500 truncate">
-                            {u.customRoleTitle || u.email}
-                          </p>
-                          {u.branchName && (
-                            <p className="text-[10px] text-indigo-600 font-medium truncate">
-                              📍 {u.branchName}
-                            </p>
-                          )}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Notification Bell */}
+            {/* 3. Notifications Icon */}
             <div className="relative">
               <button
                 id="header-notifications-btn"
                 onClick={() => {
                   setShowNotifications(!showNotifications);
-                  setShowDemoSwitcher(false);
                   setShowUserMenu(false);
-                  setShowBranchMenu(false);
+                  setIsSearchExpanded(false);
                 }}
-                className="relative p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                className="relative p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
                 title="Notifications"
               >
                 <Bell className="w-5 h-5" />
@@ -326,7 +183,7 @@ export const Header: React.FC<HeaderProps> = ({
 
               {/* Notifications Dropdown */}
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50">
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
                   <div className="px-4 py-2 border-b border-slate-100 flex items-center justify-between">
                     <span className="text-sm font-bold text-slate-800">Notifications</span>
                     <span className="text-xs bg-indigo-50 text-indigo-700 font-semibold px-2 py-0.5 rounded-full">
@@ -370,22 +227,21 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
 
-            {/* User Profile Dropdown */}
+            {/* 4. Profile */}
             <div className="relative">
               <button
                 id="header-user-menu-btn"
                 onClick={() => {
                   setShowUserMenu(!showUserMenu);
                   setShowNotifications(false);
-                  setShowDemoSwitcher(false);
-                  setShowBranchMenu(false);
+                  setIsSearchExpanded(false);
                 }}
-                className="flex items-center space-x-2 p-1.5 rounded-xl hover:bg-slate-100 transition-colors"
+                className="flex items-center space-x-2 p-1.5 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <img
                   src={currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120'}
                   alt={currentUser.name}
-                  className="w-8 h-8 rounded-full object-cover ring-2 ring-indigo-200"
+                  className="w-8 h-8 rounded-full object-cover ring-2 ring-purple-400/40 shadow-xs"
                 />
                 <div className="hidden lg:block text-left">
                   <p className="text-xs font-bold text-slate-800 truncate max-w-[120px]">
@@ -410,41 +266,70 @@ export const Header: React.FC<HeaderProps> = ({
                     </div>
                   </div>
                   <div className="py-1">
-                    <div className="px-4 py-2 text-xs text-slate-500 flex items-center justify-between">
-                      <span>Staff/User ID:</span>
-                      <span className="font-mono font-medium text-slate-700">{currentUser.staffId || currentUser.id.slice(0, 10)}</span>
+                    <div className="px-4 py-1.5 text-xs text-slate-500 flex items-center justify-between">
+                      <span>Official School ID:</span>
+                      <span className="font-mono font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                        {currentUser.schoolId || currentUser.staffId || currentUser.username}
+                      </span>
                     </div>
-                    {currentUser.branchName && (
-                      <div className="px-4 py-2 text-xs text-slate-500 flex items-center justify-between">
-                        <span>Campus:</span>
-                        <span className="font-medium text-indigo-700 truncate max-w-[140px]">{currentUser.branchName}</span>
+                    {currentUser.role === 'SUPER_ADMIN' && (
+                      <div className="px-3">
+                        <AdvancedAccountInfoSection
+                          currentUserRole={currentUser.role}
+                          targetUser={{
+                            id: currentUser.id,
+                            name: currentUser.name,
+                            role: currentUser.role,
+                            schoolId: currentUser.schoolId || currentUser.staffId || currentUser.username,
+                            firebaseUid: currentUser.firebaseUid,
+                            email: currentUser.email,
+                            username: currentUser.username
+                          }}
+                        />
                       </div>
                     )}
-                    <div className="px-4 py-2 text-xs text-slate-500 flex items-center justify-between">
+                    {currentUser.branchName && (
+                      <div className="px-4 py-1.5 text-xs text-slate-500 flex items-center justify-between">
+                        <span>Branch:</span>
+                        <span className="font-medium text-slate-700 truncate max-w-[140px]">{currentUser.branchName}</span>
+                      </div>
+                    )}
+                    <div className="px-4 py-1.5 text-xs text-slate-500 flex items-center justify-between">
                       <span>Status:</span>
                       <span className="inline-flex items-center text-emerald-600 font-medium">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
                         Active
                       </span>
                     </div>
+
+                    {(isSuperAdmin(currentUser) || isDirector(currentUser)) && (
+                      <div className="pt-1 border-t border-slate-100">
+                        <button
+                          onClick={() => {
+                            setShowUserMenu(false);
+                            if (onOpenAuditLog) onOpenAuditLog();
+                          }}
+                          className="w-full text-left px-4 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50 flex items-center justify-between transition-colors"
+                          id="btn-header-audit-log"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Shield className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>Institutional Audit Log</span>
+                          </span>
+                          <span className="text-[10px] uppercase font-bold text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded">
+                            Secure
+                          </span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <div className="border-t border-slate-100 pt-1">
-                    <button
-                      onClick={() => {
-                        db.resetToSeedData();
-                        setShowUserMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center space-x-2"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>Reset Demo Database to Default</span>
-                    </button>
                     <button
                       onClick={() => {
                         db.logout();
                         setShowUserMenu(false);
                       }}
-                      className="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center space-x-2 font-medium"
+                      className="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center space-x-2 font-medium cursor-pointer"
                     >
                       <LogOut className="w-3.5 h-3.5" />
                       <span>Log Out Session</span>

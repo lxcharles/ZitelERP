@@ -200,7 +200,7 @@ export const BehaviorCategorySettings: React.FC<BehaviorCategorySettingsProps> =
               </div>
 
               <p className="text-xs text-slate-600 line-clamp-2 min-h-[32px]">
-                {cat.description || 'Standard pastoral observation classification.'}
+                {cat.description || 'Standard behavioral observation classification.'}
               </p>
 
               <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">

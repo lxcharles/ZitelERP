@@ -1,5 +1,36 @@
 @import "tailwindcss";
 
+/* Premium Glassmorphism & Gradient Design Tokens */
+.glass-surface {
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+}
+
+.glass-surface-dark {
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.gradient-purple-accent {
+  background: linear-gradient(135deg, #581c87 0%, #7c3aed 50%, #9333ea 100%);
+}
+
+.gradient-purple-subtle {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.08) 0%, rgba(147, 51, 234, 0.03) 100%);
+}
+
+.gradient-orange-accent {
+  background: linear-gradient(135deg, #c2410c 0%, #f97316 50%, #fbbf24 100%);
+}
+
+.gradient-orange-subtle {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.08) 0%, rgba(251, 191, 36, 0.03) 100%);
+}
+
 @media print {
   /* Hide all non-printable chrome */
   body * {
@@ -15,20 +46,34 @@
     display: none !important;
   }
 
-  /* Make printable report card visible and positioned at top-left */
-  .printable-card,
-  .printable-card * {
+  /* When printing transcript, hide standard report card */
+  body.printing-transcript .printable-card,
+  body.printing-transcript .printable-card * {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* When printing standard report card, hide official transcript */
+  body:not(.printing-transcript) .official-transcript-print,
+  body:not(.printing-transcript) .official-transcript-print * {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Standard report card print visibility */
+  body:not(.printing-transcript) .printable-card,
+  body:not(.printing-transcript) .printable-card * {
     visibility: visible;
   }
 
-  .printable-card {
+  body:not(.printing-transcript) .printable-card {
     position: absolute;
     left: 0;
     top: 0;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
-    padding: 20mm 15mm !important;
+    padding: 15mm 12mm !important;
     box-shadow: none !important;
     border: none !important;
     background: #ffffff !important;
@@ -37,15 +82,45 @@
     print-color-adjust: exact !important;
   }
 
-  /* Prevent page breaks inside cards, tables, and signatures */
-  table, tr, td, th, .printable-section {
+  /* Custom Print-Only CSS Class for Official Transcripts */
+  body.printing-transcript .official-transcript-print,
+  body.printing-transcript .official-transcript-print * {
+    visibility: visible !important;
+  }
+
+  .official-transcript-print {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 12mm 14mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 10pt !important;
+    line-height: 1.35 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .official-transcript-document {
+    display: block !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  /* Prevent page breaks inside cards, tables, sections, and signatures */
+  table, tr, td, th, .printable-section, .transcript-section {
     break-inside: avoid;
     page-break-inside: avoid;
   }
 
   @page {
     size: A4 portrait;
-    margin: 10mm;
+    margin: 8mm;
   }
 }
 

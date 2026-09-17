@@ -26,13 +26,24 @@ import {
   FileSpreadsheet,
   BookOpen,
   Building2,
-  GraduationCap
+  GraduationCap,
+  Archive,
+  Terminal
 } from 'lucide-react';
-import { User, AdminPermission, PermissionScope, SchoolProfile, AIGovernanceConfig } from '../../types';
+import { User, AdminPermission, PermissionScope, SchoolProfile, AIGovernanceConfig, CredentialSlip } from '../../types';
 import { db } from '../../services/db';
+import { CredentialSlipModal } from '../common/CredentialSlipModal';
 import { BulkStudentUploadModal } from '../common/BulkStudentUploadModal';
 import { AcademicSubjectManager } from '../common/AcademicSubjectManager';
+import { FinancialMetricCard } from '../common/FinancialMetricCard';
+import { DailyCalendarIntelligenceWidget } from '../common/DailyCalendarIntelligenceWidget';
+import { SchoolCalendarManager } from '../calendar/SchoolCalendarManager';
+import { StudentPromotionManager } from '../promotion/StudentPromotionManager';
+import { AcademicArchiveViewer } from '../archive/AcademicArchiveViewer';
+import { FormerStudentsHub } from '../archive/FormerStudentsHub';
+import { AdvancedAccountInfoSection } from '../common/AdvancedAccountInfoSection';
 import { exportStudentsToCSV, exportAttendanceToCSV, exportFinancialsToCSV } from '../../utils/exportCsv';
+import { InstitutionalAuditLog } from '../admin/InstitutionalAuditLog';
 
 interface SuperAdminDashboardProps {
   currentUser: User;
@@ -43,14 +54,17 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   currentUser,
   activeTab,
 }) => {
-  const [subTab, setSubTab] = useState<'overview' | 'admins' | 'academics' | 'ai' | 'audit' | 'branding'>(
-    activeTab === 'academics' ? 'academics' : 'overview'
+  const [subTab, setSubTab] = useState<'overview' | 'admins' | 'academics' | 'promotion' | 'archives' | 'former_students' | 'ai' | 'audit' | 'branding' | 'privacy'>(
+    (activeTab as any) === 'academics' ? 'academics' : (activeTab as any) || 'overview'
   );
   const [showCreateAdminModal, setShowCreateAdminModal] = useState(false);
   const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
   const [importNotification, setImportNotification] = useState<string | null>(null);
   const [selectedAdminForEdit, setSelectedAdminForEdit] = useState<User | null>(null);
+  const [selectedAdminForInfo, setSelectedAdminForInfo] = useState<User | null>(null);
   const [showPasswordResetModal, setShowPasswordResetModal] = useState<User | null>(null);
+  const [activeCredentialSlip, setActiveCredentialSlip] = useState<CredentialSlip | null>(null);
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
 
   // Form state for creating/editing Admin
   const [adminForm, setAdminForm] = useState({
@@ -92,8 +106,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     : 96;
 
   const ALL_PERMISSIONS: { id: AdminPermission; label: string; desc: string }[] = [
-    { id: 'manage_teachers', label: 'Manage Faculty & Teachers', desc: 'Onboard, assign classes/subjects, view teacher activity' },
-    { id: 'manage_classes', label: 'Manage Classes & Sections', desc: 'Configure class cohorts, form teachers, and capacities' },
+    { id: 'manage_teachers', label: 'Manage Teaching Staff & Teachers', desc: 'Onboard, assign classes/subjects, view teacher activity' },
+    { id: 'manage_classes', label: 'Manage Classes & Sections', desc: 'Configure classes, form teachers, and capacities' },
     { id: 'manage_subjects', label: 'Manage Subjects & Codes', desc: 'Define academic subjects and curriculum criteria' },
     { id: 'manage_students', label: 'Manage Student Directory', desc: 'View, edit, and oversee student records' },
     { id: 'manage_parents', label: 'Manage Parent Registry', desc: 'Manage parent/guardian profiles and child links' },
@@ -122,28 +136,35 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
   const handleCreateAdminSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adminForm.name || !adminForm.email || !adminForm.username) {
+    if (!adminForm.name || !adminForm.email) {
       alert('Please fill all required fields');
       return;
     }
 
-    db.createUser(
+    const activeBranch = db.getActiveBranchId();
+    const branchId = activeBranch !== 'all' ? activeBranch : 'branch_bungalow';
+    const branchName = branchId === 'branch_ijegun' ? 'Zitel Castle School Ijegun' : 'Zitel Castle School Bungalow';
+
+    const nameParts = adminForm.name.trim().split(' ');
+    const firstName = nameParts[0] || 'Administrator';
+    const lastName = nameParts.slice(1).join(' ') || 'User';
+
+    const result = db.adminCreateAdminAccount(
       {
-        name: adminForm.name,
+        firstName,
+        lastName,
         email: adminForm.email,
-        username: adminForm.username,
-        role: 'ADMIN',
-        status: 'active',
+        phone: adminForm.phone,
+        branchId,
         customRoleTitle: adminForm.customRoleTitle,
         scope: adminForm.scope,
         permissions: adminForm.permissions,
-        phone: adminForm.phone,
-        avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=120',
       },
       currentUser
     );
 
     setShowCreateAdminModal(false);
+    setActiveCredentialSlip(result.credentialSlip);
     setAdminForm({
       name: '',
       email: '',
@@ -153,6 +174,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       phone: '',
       permissions: ['manage_teachers', 'manage_classes', 'manage_students', 'manage_reports'],
     });
+  };
+
+  const handleResetAdminCredentials = (admin: User) => {
+    if (confirm(`Generate new temporary access credentials for administrator ${admin.name} (${admin.schoolId})?`)) {
+      const resultSlip = db.adminResetUserPassword(admin.id, currentUser);
+      setActiveCredentialSlip(resultSlip);
+    }
   };
 
   const handleUpdateAdminSubmit = (e: React.FormEvent) => {
@@ -186,6 +214,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     }
   };
 
+  if (activeTab === 'calendar') {
+    return <SchoolCalendarManager currentUser={currentUser} />;
+  }
+
+  if (activeTab === 'audit_logs') {
+    return <InstitutionalAuditLog currentUser={currentUser} />;
+  }
+
   return (
     <div className="space-y-6">
       {/* Top Banner / Breadcrumb */}
@@ -193,15 +229,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         <div>
           <div className="flex items-center space-x-2">
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-500/20 text-purple-300 border border-purple-400/30 uppercase tracking-wider">
-              Super Admin Console
+              Super Admin
             </span>
-            <span className="text-xs text-slate-400 font-mono">• Master Authorization Tier</span>
+            <span className="text-xs text-slate-400 font-mono">• Master Authorization & Platform Governance</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black mt-1 font-display tracking-tight">
-            Institutional Governance & Operations
+            Welcome, {currentUser.name || 'Alex'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 mt-0.5">
-            Full oversight of administrators, permissions, academic records, and AI infrastructure.
+            Role: <strong className="text-purple-300">Super Admin</strong> • Platform administrator in charge of Zitel Castle School system.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -257,64 +293,52 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       )}
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase">Administrators</span>
-            <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2 flex items-baseline space-x-2">
-            <span className="text-2xl font-black text-slate-900">{admins.length}</span>
-            <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-              Active
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">Delegated scope authorities</p>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <FinancialMetricCard
+          id="sa-card-admins"
+          title="Administrators"
+          value={admins.length}
+          icon={ShieldCheck}
+          variant="purple"
+          isMono={false}
+          badge={{ text: 'Active', variant: 'emerald' }}
+          subtext="Delegated scope authorities"
+        />
 
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase">Faculty & Teachers</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2 flex items-baseline space-x-2">
-            <span className="text-2xl font-black text-slate-900">{teachers.length}</span>
-            <span className="text-[11px] text-slate-500 font-medium">Across {classes.length} classes</span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">{students.length} enrolled students</p>
-        </div>
+        <FinancialMetricCard
+          id="sa-card-teachers"
+          title="Teaching Staff & Teachers"
+          value={teachers.length}
+          icon={Users}
+          variant="emerald"
+          isMono={false}
+          badge={{ text: `${classes.length} Classes`, variant: 'slate' }}
+          subtext={`${students.length} enrolled students`}
+        />
 
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase">Fee Collection</span>
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-              <DollarSign className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2 flex items-baseline space-x-2">
-            <span className="text-2xl font-black text-slate-900">₦{totalRevenue.toLocaleString()}</span>
-            <span className="text-[11px] font-bold text-slate-500">Collected</span>
-          </div>
-          <p className="text-[11px] text-amber-600 font-medium mt-1">₦{totalOutstanding.toLocaleString()} outstanding</p>
-        </div>
+        <FinancialMetricCard
+          id="sa-card-fees"
+          title="Fee Collection"
+          value={`₦${totalRevenue.toLocaleString()}`}
+          icon={DollarSign}
+          variant="blue"
+          isMono={true}
+          badge={{ text: 'Collected', variant: 'emerald' }}
+          secondaryBadge={{ text: `₦${totalOutstanding.toLocaleString()} Pending`, variant: 'amber' }}
+          subtext="All branch billing accounts"
+        />
 
-        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase">AI Requests Used</span>
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <Sparkles className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2 flex items-baseline space-x-2">
-            <span className="text-2xl font-black text-indigo-700">{aiGov.totalRequestsUsed}</span>
-            <span className="text-[11px] text-slate-400 font-medium">/ {aiGov.monthlyLimit} budget</span>
-          </div>
-          <p className="text-[11px] text-emerald-600 font-medium mt-1">All AI policies active</p>
-        </div>
+        <FinancialMetricCard
+          id="sa-card-ai"
+          title="AI Requests Used"
+          value={aiGov.totalRequestsUsed}
+          icon={Sparkles}
+          variant="indigo"
+          isMono={false}
+          badge={{ text: `/ ${aiGov.monthlyLimit} budget`, variant: 'slate' }}
+          subtext="All AI policies active"
+          subtextColor="text-emerald-600"
+        />
       </div>
 
       {/* Sub-tab Navigation */}
@@ -323,8 +347,12 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           { id: 'overview', label: 'Executive Summary', icon: TrendingUp },
           { id: 'admins', label: 'Admin Accounts & RBAC', icon: ShieldCheck },
           { id: 'academics', label: 'Academic & Subject Config', icon: BookOpen },
+          { id: 'promotion', label: 'Promotion System', icon: Sparkles },
+          { id: 'archives', label: 'Academic Archives', icon: Archive },
+          { id: 'former_students', label: 'Former Students', icon: Users },
           { id: 'ai', label: 'AI Governance Suite', icon: Sparkles },
           { id: 'audit', label: 'System Audit Trail', icon: History },
+          { id: 'privacy', label: 'Contact Privacy & Requests', icon: Lock },
           { id: 'branding', label: 'School Settings & Branding', icon: Sliders },
         ].map(t => {
           const Icon = t.icon;
@@ -351,21 +379,45 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         <AcademicSubjectManager currentUser={currentUser} />
       )}
 
+      {/* Sub-Tab: Student Promotion System */}
+      {subTab === 'promotion' && (
+        <StudentPromotionManager
+          currentUser={currentUser}
+          onViewStudentArchive={() => setSubTab('archives')}
+        />
+      )}
+
+      {/* Sub-Tab: Academic Archives & Correction */}
+      {subTab === 'archives' && (
+        <AcademicArchiveViewer currentUser={currentUser} />
+      )}
+
+      {/* Sub-Tab: Former Students Repository */}
+      {subTab === 'former_students' && (
+        <FormerStudentsHub
+          currentUser={currentUser}
+          onOpenStudentArchive={() => setSubTab('archives')}
+        />
+      )}
+
       {/* Sub-Tab 1: Overview */}
       {subTab === 'overview' && (
         <div className="space-y-6">
+          {/* Daily Calendar Intelligence: Active Session, Term Countdown & Upcoming Events */}
+          <DailyCalendarIntelligenceWidget currentUser={currentUser} />
+
           {/* Branch Enrollment Statistics (Bungalow vs Ijegun) */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
                   <Building2 className="w-4 h-4 text-indigo-600" />
-                  <span>Campus & Branch Enrollment Analytics</span>
+                  <span>Branch Enrollment Analytics</span>
                 </h3>
-                <p className="text-xs text-slate-500">Live operational breakdown between Zitel Castle School campuses</p>
+                <p className="text-xs text-slate-500">Live operational breakdown between Zitel Castle School branches</p>
               </div>
               <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700">
-                {branchEnrollmentStats.length} Campuses Operating
+                {branchEnrollmentStats.length} Branches Operating
               </span>
             </div>
 
@@ -391,7 +443,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                       <p className="text-base font-black text-slate-900 mt-0.5">{stat.totalStudents}</p>
                     </div>
                     <div className="p-2 rounded-lg bg-white border border-slate-200">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Faculty</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Teaching Staff</p>
                       <p className="text-base font-black text-indigo-700 mt-0.5">{stat.totalTeachers}</p>
                     </div>
                     <div className="p-2 rounded-lg bg-white border border-slate-200">
@@ -402,7 +454,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
                   <div>
                     <div className="flex justify-between text-[11px] font-bold text-slate-600 mb-1">
-                      <span>Campus Capacity Utilization</span>
+                      <span>Branch Capacity Utilization</span>
                       <span>{stat.utilizationRate}% ({stat.totalStudents}/{stat.totalCapacity})</span>
                     </div>
                     <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
@@ -557,8 +609,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                             className="w-9 h-9 rounded-full object-cover ring-1 ring-slate-200"
                           />
                           <div>
-                            <p className="font-bold text-slate-900 text-sm">{adm.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-bold text-slate-900 text-sm">{adm.name}</p>
+                              <span className="font-mono text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                                {adm.schoolId || adm.username}
+                              </span>
+                            </div>
                             <p className="text-slate-500 font-mono text-[11px]">{adm.email}</p>
+                            {adm.branchName && (
+                              <p className="text-slate-400 text-[10px]">{adm.branchName}</p>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -608,6 +668,20 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end space-x-1.5">
+                          <button
+                            onClick={() => setSelectedAdminForInfo(adm)}
+                            className="p-1.5 text-slate-500 hover:text-indigo-600 rounded-lg hover:bg-slate-100"
+                            title="Technical Support & Advanced Account Info (Super Admin)"
+                          >
+                            <Terminal className="w-4 h-4 text-indigo-600" />
+                          </button>
+                          <button
+                            onClick={() => handleResetAdminCredentials(adm)}
+                            className="p-1.5 text-slate-500 hover:text-emerald-600 rounded-lg hover:bg-slate-100"
+                            title="Reset Credentials & Issue Voucher"
+                          >
+                            <KeyRound className="w-4 h-4 text-amber-600" />
+                          </button>
                           <button
                             onClick={() => {
                               setSelectedAdminForEdit(adm);
@@ -751,51 +825,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
       {/* Sub-Tab 4: Audit Logs */}
       {subTab === 'audit' && (
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-bold text-slate-900">System Audit Trail & Security Logs</h2>
-              <p className="text-xs text-slate-500">Immutable ledger of administrative actions, user updates, and grade recordings</p>
-            </div>
-            <span className="text-xs font-mono font-semibold text-slate-500">
-              {auditLogs.length} total events recorded
-            </span>
-          </div>
-
-          <div className="overflow-x-auto border border-slate-100 rounded-xl">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200 uppercase text-[10px]">
-                <tr>
-                  <th className="py-2.5 px-3">Timestamp</th>
-                  <th className="py-2.5 px-3">User & Role</th>
-                  <th className="py-2.5 px-3">Action</th>
-                  <th className="py-2.5 px-3">Entity</th>
-                  <th className="py-2.5 px-3">Details</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {auditLogs.map(log => (
-                  <tr key={log.id} className="hover:bg-slate-50/50">
-                    <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">
-                      {new Date(log.timestamp).toLocaleString()}
-                    </td>
-                    <td className="py-2.5 px-3 font-bold text-slate-800">
-                      {log.userName}{' '}
-                      <span className="font-normal text-[10px] text-slate-400 block">{log.userRole}</span>
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span className="font-mono text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-semibold">
-                        {log.action}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 font-semibold text-slate-600">{log.entityType}</td>
-                    <td className="py-2.5 px-3 text-slate-700 max-w-md truncate">{log.details}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <InstitutionalAuditLog currentUser={currentUser} />
       )}
 
       {/* Sub-Tab 5: Settings & Branding */}
@@ -848,6 +878,141 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               />
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sub-Tab: Contact Privacy & Access Requests */}
+      {subTab === 'privacy' && (
+        <div className="space-y-6">
+          {/* Institutional Policy Header */}
+          <div className="p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-md border border-slate-800 space-y-3">
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 rounded-xl bg-indigo-500/20 border border-indigo-400/30 text-indigo-300">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold tracking-tight">Institutional PII Privacy & Contact Governance</h2>
+                <p className="text-xs text-indigo-200">
+                  Strict Confidentiality Architecture — Bungalow & Ijegun Branches
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              In strict accordance with Zitel Castle School security policies, personal identifiable information (PII) including phone numbers and personal emails is masked across all portals. Full contact unmasking is reserved strictly for <strong>Super Admin (Alex)</strong> and <strong>School Director (Dr. Nwankwo Chika)</strong>. Other institutional roles must submit formal justification requests reviewed here.
+            </p>
+            <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-indigo-200">
+              <span className="px-2.5 py-1 rounded-lg bg-white/10 border border-white/15">Super Admin: Alex</span>
+              <span className="px-2.5 py-1 rounded-lg bg-white/10 border border-white/15">School Director: Dr. Nwankwo Chika</span>
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/30 text-emerald-300">scrypt-Hashed Credentials</span>
+            </div>
+          </div>
+
+          {/* Contact Requests Manager */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Official Contact Information Requests</h3>
+                <p className="text-xs text-slate-500">Review, approve, or decline contact access authorizations.</p>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                {db.getContactRequests().length} Total Recorded Requests
+              </span>
+            </div>
+
+            {db.getContactRequests().length === 0 ? (
+              <div className="p-10 text-center space-y-2">
+                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <h4 className="text-sm font-bold text-slate-700">No Pending Contact Requests</h4>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  All member contact numbers and personal emails remain fully protected and masked across the system.
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-200">
+                {db.getContactRequests().map(req => {
+                  const isPending = req.status === 'pending';
+                  const isApproved = req.status === 'approved';
+                  return (
+                    <div key={req.id} className="p-5 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-bold text-slate-900 text-xs sm:text-sm">{req.requesterName}</span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                              {req.requesterRole}
+                            </span>
+                            <span className="text-slate-400 text-xs">requested contact info for</span>
+                            <span className="font-bold text-indigo-700 text-xs sm:text-sm">{req.targetUserName}</span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              {req.targetUserRole}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                            <strong>Official Justification:</strong> {req.reason}
+                          </p>
+                        </div>
+                        <div className="shrink-0 flex items-center gap-2">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${
+                            isApproved
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : req.status === 'declined'
+                              ? 'bg-rose-100 text-rose-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {isApproved && <CheckCircle2 className="w-3.5 h-3.5" />}
+                            {req.status === 'declined' && <XCircle className="w-3.5 h-3.5" />}
+                            {isPending && <AlertTriangle className="w-3.5 h-3.5" />}
+                            <span className="uppercase">{req.status}</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {isPending && (
+                        <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                          <input
+                            type="text"
+                            placeholder="Optional administrative review notes..."
+                            value={reviewNotes[req.id] || ''}
+                            onChange={e => setReviewNotes({ ...reviewNotes, [req.id]: e.target.value })}
+                            className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                db.reviewContactRequest(req.id, currentUser.id, currentUser.name, currentUser.role, true, reviewNotes[req.id]);
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Approve Access</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                db.reviewContactRequest(req.id, currentUser.id, currentUser.name, currentUser.role, false, reviewNotes[req.id]);
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              <span>Decline</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {!isPending && req.reviewedByUserName && (
+                        <div className="text-[11px] text-slate-500 flex items-center gap-2 pt-1">
+                          <span>Reviewed by {req.reviewedByUserName} ({new Date(req.reviewedAt || '').toLocaleDateString()})</span>
+                          {req.reviewNotes && <span>• Note: {req.reviewNotes}</span>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1007,6 +1172,12 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             </div>
 
             <form onSubmit={handleUpdateAdminSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+              {/* Advanced Account Info for Super Admin */}
+              <AdvancedAccountInfoSection
+                currentUserRole={currentUser.role}
+                targetUser={selectedAdminForEdit}
+              />
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Full Name</label>
@@ -1101,14 +1272,73 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         </div>
       )}
 
+      {/* Modal: Advanced Technical Support Info */}
+      {selectedAdminForInfo && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Terminal className="w-5 h-5 text-indigo-600" />
+                <h3 className="font-bold text-slate-900 text-base">Advanced Account Diagnostics</h3>
+              </div>
+              <button
+                onClick={() => setSelectedAdminForInfo(null)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="flex items-center space-x-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <img
+                  src={selectedAdminForInfo.avatar || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=120'}
+                  alt={selectedAdminForInfo.name}
+                  className="w-12 h-12 rounded-full object-cover ring-2 ring-indigo-100"
+                />
+                <div>
+                  <h4 className="font-bold text-sm text-slate-900">{selectedAdminForInfo.name}</h4>
+                  <p className="text-xs text-slate-500">{selectedAdminForInfo.customRoleTitle || 'Administrator'}</p>
+                  <p className="text-[11px] font-mono text-indigo-700 font-semibold mt-0.5">
+                    School ID: {selectedAdminForInfo.schoolId || selectedAdminForInfo.username}
+                  </p>
+                </div>
+              </div>
+
+              <AdvancedAccountInfoSection
+                currentUserRole={currentUser.role}
+                targetUser={selectedAdminForInfo}
+              />
+
+              <div className="pt-3 border-t border-slate-100 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setSelectedAdminForInfo(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 cursor-pointer"
+                >
+                  Close Diagnostic View
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bulk Student Upload Modal */}
       {showBulkUploadModal && (
         <BulkStudentUploadModal
           currentUser={currentUser}
           onClose={() => setShowBulkUploadModal(false)}
           onSuccess={(count) => {
-            setImportNotification(`Successfully enrolled ${count} students into class cohorts!`);
+            setImportNotification(`Successfully enrolled ${count} students into classes!`);
           }}
+        />
+      )}
+
+      {/* Credential Slip Voucher Modal */}
+      {activeCredentialSlip && (
+        <CredentialSlipModal
+          credentialSlip={activeCredentialSlip}
+          onClose={() => setActiveCredentialSlip(null)}
         />
       )}
     </div>

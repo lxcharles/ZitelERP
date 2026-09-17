@@ -1,231 +1,189 @@
 import React, { useState } from 'react';
 import {
-  School,
   ShieldCheck,
-  GraduationCap,
-  Heart,
-  Smile,
   Lock,
   ArrowRight,
-  Sparkles,
-  Shield,
-  CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Building2,
+  KeyRound
 } from 'lucide-react';
-import { User, UserRole } from '../../types';
+import { User } from '../../types';
 import { db } from '../../services/db';
+import { ForgotPasswordModal } from './ForgotPasswordModal';
 
 interface LoginPageProps {
   onLoginSuccess: (user: User) => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-  const [emailOrUsername, setEmailOrUsername] = useState('superadmin@oakridge.edu');
-  const [password, setPassword] = useState('admin123');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [showForgotModal, setShowForgotModal] = useState(false);
 
   const school = db.getSchoolProfile();
-  const allUsers = db.getUsers();
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!identifier.trim()) {
+      setError('Please enter your School ID or registered username.');
+      return;
+    }
+    if (!password) {
+      setError('Please enter your account password.');
+      return;
+    }
+
     setError(null);
-    const res = db.login(emailOrUsername);
-    if (res.success && res.user) {
-      onLoginSuccess(res.user);
-    } else {
-      setError(res.error || 'Authentication failed. Please verify credentials.');
+    setLoading(true);
+
+    try {
+      const res = db.login(identifier, password);
+      if (res.success && res.user) {
+        onLoginSuccess(res.user);
+      } else {
+        setError(res.error || 'Authentication failed. Please verify your School ID or password.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'An authentication error occurred. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
-
-  const handleQuickLogin = (userId: string) => {
-    const user = allUsers.find(u => u.id === userId);
-    if (user) {
-      db.setCurrentUser(user.id);
-      db.addAuditLog(user.id, user.name, user.role, 'LOGIN', 'User', user.id, `1-Click demo authentication`);
-      onLoginSuccess(user);
-    }
-  };
-
-  const quickRoles = [
-    {
-      id: 'user_superadmin_01',
-      title: 'Super Admin',
-      name: 'Dr. Eleanor Vance',
-      role: 'SUPER_ADMIN',
-      desc: 'Master institutional oversight, RBAC governance, branch & policy controls',
-      icon: ShieldCheck,
-      badge: 'bg-purple-100 text-purple-800 border-purple-200',
-    },
-    {
-      id: 'user_admin_marcus',
-      title: 'Academic Administrator',
-      name: 'Marcus Sterling',
-      role: 'ADMIN',
-      desc: 'Onboard faculty, manage classes, timetable & curriculum',
-      icon: Shield,
-      badge: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-    },
-    {
-      id: 'user_admin_clara',
-      title: 'Finance Administrator',
-      name: 'Clara Oswald',
-      role: 'ADMIN',
-      desc: 'Fee structures, invoices, payment receipts & ledger',
-      icon: Shield,
-      badge: 'bg-blue-100 text-blue-800 border-blue-200',
-    },
-    {
-      id: 'user_teacher_sarah',
-      title: 'Class Teacher',
-      name: 'Sarah Jenkins',
-      role: 'TEACHER',
-      desc: 'Classroom management, attendance, gradebook, lesson notes & planner',
-      icon: GraduationCap,
-      badge: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    },
-    {
-      id: 'user_parent_elena',
-      title: 'Parent / Guardian',
-      name: 'Elena Rodriguez',
-      role: 'PARENT',
-      desc: 'Multi-child switcher, growth charts, grades & fees',
-      icon: Heart,
-      badge: 'bg-amber-100 text-amber-800 border-amber-200',
-    },
-    {
-      id: 'user_student_leo',
-      title: 'Primary Student',
-      name: 'Leo Rodriguez',
-      role: 'STUDENT',
-      desc: 'Homework, timetable, reward stars & practice quizzes',
-      icon: Smile,
-      badge: 'bg-sky-100 text-sky-800 border-sky-200',
-    },
-  ];
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Subtle background glow */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-600/15 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden selection:bg-indigo-500 selection:text-white">
+      {/* Background ambient radial gradients */}
+      <div className="absolute top-0 left-1/3 w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-[450px] h-[450px] bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center relative z-10">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-blue-500 text-white shadow-xl shadow-indigo-500/20 ring-4 ring-white/10 mb-4">
-          <School className="w-9 h-9" />
-        </div>
-        <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight font-display">
-          {school.name}
-        </h2>
-        <p className="mt-1 text-xs text-indigo-200 font-medium">
-          Primary School Enterprise Operating System & Academic Terminal
-        </p>
-      </div>
-
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-4xl grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
-        {/* Left: 1-Click Role Exploration */}
-        <div className="lg:col-span-7 bg-slate-800/80 backdrop-blur-md rounded-3xl p-6 sm:p-7 border border-slate-700/80 shadow-2xl space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-700/60 pb-3">
-            <div>
-              <h3 className="text-sm font-bold text-white flex items-center space-x-2">
-                <Sparkles className="w-4 h-4 text-indigo-400" />
-                <span>Instant 1-Click Role Sandbox</span>
-              </h3>
-              <p className="text-xs text-slate-400">Select any authorized account to explore full workflows:</p>
-            </div>
-            <span className="text-[10px] font-mono bg-indigo-900/60 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-700/50">
-              5 Authorized Tiers
-            </span>
+      {/* Main Container */}
+      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
+        {/* School Crest / Branding */}
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-white shadow-2xl shadow-indigo-500/20 ring-4 ring-white/10 mb-4 transform hover:scale-105 transition-transform duration-200">
+            <img
+              src={school.logo || 'https://res.cloudinary.com/dehvk3bre/image/upload/v1782745354/20260304_140255_weozqy.png'}
+              alt={school.name || 'Zitel Castle School Logo'}
+              className="h-14 sm:h-16 w-auto max-w-[220px] object-contain shrink-0"
+              referrerPolicy="no-referrer"
+            />
           </div>
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight font-display uppercase">
+            {school.name || 'ZITEL CASTLE SCHOOL'}
+          </h1>
+          <p className="mt-1 text-xs text-indigo-300 font-medium tracking-wide">
+            School Management and Academic Operations System
+          </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {quickRoles.map(item => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleQuickLogin(item.id)}
-                  className="p-3.5 rounded-2xl bg-slate-900/70 hover:bg-slate-700/90 border border-slate-700 hover:border-indigo-500 text-left transition-all duration-150 flex flex-col justify-between group shadow-xs cursor-pointer"
-                >
-                  <div className="flex items-start justify-between w-full mb-1">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-7 h-7 rounded-lg bg-slate-800 text-indigo-400 group-hover:text-white group-hover:bg-indigo-600 flex items-center justify-center transition-colors">
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <span className="font-bold text-xs text-white group-hover:text-indigo-300">
-                        {item.name}
-                      </span>
-                    </div>
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${item.badge}`}>
-                      {item.title}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 group-hover:text-slate-300 line-clamp-2 leading-relaxed">
-                    {item.desc}
-                  </p>
-                </button>
-              );
-            })}
+          {/* Institutional Security Badge */}
+          <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/90 border border-slate-800 text-[11px] text-slate-400">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Firebase Authentication • Authorized Access Only</span>
           </div>
         </div>
 
-        {/* Right: Traditional Credentials Form */}
-        <div className="lg:col-span-5 bg-slate-800/80 backdrop-blur-md rounded-3xl p-6 sm:p-7 border border-slate-700/80 shadow-2xl flex flex-col justify-between space-y-4">
-          <div>
-            <h3 className="text-sm font-bold text-white flex items-center space-x-2 mb-1">
+        {/* Login Card */}
+        <div className="bg-slate-900/95 backdrop-blur-xl rounded-3xl p-7 sm:p-8 border border-slate-800 shadow-2xl space-y-5">
+          <div className="border-b border-slate-800 pb-4">
+            <h2 className="text-base font-bold text-white flex items-center space-x-2">
               <Lock className="w-4 h-4 text-emerald-400" />
-              <span>Standard Sign In</span>
-            </h3>
-            <p className="text-xs text-slate-400 mb-4">
-              Enter username or institutional email to access your personal dashboard.
+              <span>Official Institutional Sign In</span>
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Enter your official School ID issued by the Administration or registered username.
             </p>
+          </div>
 
-            {error && (
-              <div className="p-3 rounded-xl bg-rose-500/20 border border-rose-500/40 text-xs text-rose-300 mb-4 flex items-start space-x-2">
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                <span>{error}</span>
-              </div>
-            )}
+          {error && (
+            <div className="p-3.5 rounded-2xl bg-rose-950/60 border border-rose-800/80 text-xs text-rose-300 flex items-start space-x-2.5 animate-in fade-in duration-150">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <span className="leading-relaxed">{error}</span>
+            </div>
+          )}
 
-            <form onSubmit={handleLoginSubmit} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Email or Username</label>
+          <form onSubmit={handleLoginSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                School ID / Username
+              </label>
+              <div className="relative">
                 <input
                   type="text"
                   required
-                  value={emailOrUsername}
-                  onChange={e => setEmailOrUsername(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-slate-700 text-white text-xs font-medium focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                  autoFocus
+                  placeholder="e.g. ZCS/SA/00001 or ZCS/BUN/TCH/00001"
+                  value={identifier}
+                  onChange={e => setIdentifier(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs font-mono font-medium focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent uppercase transition-all placeholder:normal-case placeholder:font-sans placeholder:text-slate-500"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Password</label>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-300">Password</label>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotModal(true)}
+                  className="text-[11px] text-indigo-400 hover:text-indigo-300 font-medium cursor-pointer transition-colors"
+                >
+                  Forgot Password?
+                </button>
+              </div>
+              <div className="relative">
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
+                  placeholder="••••••••••••"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-slate-700 text-white text-xs font-medium focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-3 pr-10 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs font-medium focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all placeholder:text-slate-500"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
+            </div>
 
-              <button
-                type="submit"
-                className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center space-x-2 cursor-pointer"
-              >
-                <span>Authenticate Session</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </form>
-          </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className={`w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center space-x-2 cursor-pointer ${
+                loading ? 'opacity-70 cursor-not-allowed' : ''
+              }`}
+            >
+              <span>{loading ? 'Authenticating...' : 'LOGIN'}</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </form>
 
-          <div className="pt-3 border-t border-slate-700/60 text-center">
-            <p className="text-[11px] text-slate-400">
-              Session Protected by Role-Based Access Controls (RBAC)
+          {/* Branch Footnote & Institutional Access Notice */}
+          <div className="pt-4 border-t border-slate-800/80 space-y-2">
+            <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] text-slate-400 flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-indigo-400 shrink-0" />
+              <span>Multi-Branch Governance: Bungalow & Ijegun Branches</span>
+            </div>
+            <p className="text-[10px] text-slate-500 text-center">
+              Institutional policy forbids open self-registration. Credentials are provisioned exclusively through authorized branch administration.
             </p>
           </div>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotModal && (
+        <ForgotPasswordModal onClose={() => setShowForgotModal(false)} />
+      )}
     </div>
   );
 };

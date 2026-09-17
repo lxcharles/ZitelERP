@@ -385,7 +385,7 @@ export const StudentStatusReportManager: React.FC<StudentStatusReportManagerProp
                             <span className="text-[10px] font-bold text-slate-500">{r.term}</span>
                           </div>
                           <h4 className="text-xs font-bold text-slate-900 mt-1">
-                            {r.reportType === 'INDIVIDUAL' ? r.studentName : `${r.className} Cohort`}
+                            {r.reportType === 'INDIVIDUAL' ? r.studentName : `${r.className} Class`}
                           </h4>
                           <p className="text-[10px] text-slate-400">
                             Avg: {r.academicSummary.overallAverage}% • Att: {r.attendanceSummary.attendanceRate}% • {r.date}
@@ -455,7 +455,7 @@ export const StudentStatusReportManager: React.FC<StudentStatusReportManagerProp
                   ZITEL CASTLE SCHOOL
                 </h1>
                 <p className="text-xs font-bold text-indigo-700 tracking-wider uppercase">
-                  {activeReportForView.branchName || 'BUNGALOW CAMPUS'} • PRIMARY & SECONDARY ACADEMY
+                  {activeReportForView.branchName || 'BUNGALOW BRANCH'} • PRIMARY & SECONDARY ACADEMY
                 </p>
                 <p className="text-[11px] text-slate-500 font-medium mt-0.5">
                   OFFICIAL PROGRESS, CONDUCT & STATUS REPORT • {activeReportForView.term.toUpperCase()} ({activeReportForView.academicYear})
@@ -469,7 +469,7 @@ export const StudentStatusReportManager: React.FC<StudentStatusReportManagerProp
                   <strong className="text-slate-900 font-bold text-sm">
                     {activeReportForView.reportType === 'INDIVIDUAL'
                       ? activeReportForView.studentName
-                      : `${activeReportForView.className} Entire Cohort`}
+                      : `${activeReportForView.className} Entire Class`}
                   </strong>
                   {activeReportForView.studentAdmissionNo && (
                     <span className="text-[10px] text-slate-500 font-mono block">
@@ -606,7 +606,7 @@ export const StudentStatusReportManager: React.FC<StudentStatusReportManagerProp
                   <div className="space-y-1">
                     <h3 className="text-xs font-black uppercase tracking-wider text-rose-800 flex items-center gap-1.5">
                       <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-                      <span>Pastoral & Disciplinary Incidents Note</span>
+                      <span>Behavioral & Disciplinary Incidents Note</span>
                     </h3>
                     <p className="text-xs text-rose-950 leading-relaxed bg-rose-50/50 p-3 rounded-xl border border-rose-200">
                       {activeReportForView.importantIncidents}
@@ -689,7 +689,7 @@ export const StudentStatusReportManager: React.FC<StudentStatusReportManagerProp
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 font-medium"
                   >
                     <option value="INDIVIDUAL">Individual Student</option>
-                    <option value="CLASS">Entire Class Cohort</option>
+                    <option value="CLASS">Entire Class</option>
                   </select>
                 </div>
 
@@ -710,7 +710,7 @@ export const StudentStatusReportManager: React.FC<StudentStatusReportManagerProp
                   </div>
                 ) : (
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Class Cohort</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Class</label>
                     <input
                       type="text"
                       disabled
@@ -856,7 +856,7 @@ export const StudentStatusReportManager: React.FC<StudentStatusReportManagerProp
               {/* Important Incidents */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Important Pastoral / Conduct Incidents (Optional)
+                  Important Behavioral / Conduct Incidents (Optional)
                 </label>
                 <input
                   type="text"

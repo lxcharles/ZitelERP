@@ -32,7 +32,10 @@ import { ReportCardModal } from '../common/ReportCardModal';
 import { GradeProgressionChart } from './GradeProgressionChart';
 import { ParentPerformanceAnalytics } from './ParentPerformanceAnalytics';
 import { ParentFeePaymentManager } from './ParentFeePaymentManager';
+import { DailyCalendarIntelligenceWidget } from '../common/DailyCalendarIntelligenceWidget';
+import { SchoolCalendarManager } from '../calendar/SchoolCalendarManager';
 import { CommunicationHubModal } from '../common/CommunicationHubModal';
+import { Calendar } from 'lucide-react';
 
 interface ParentDashboardProps {
   currentUser: User;
@@ -159,6 +162,9 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
               Parent & Guardian Portal
             </span>
             <span className="text-xs text-slate-400 font-mono">• Family Academic Hub</span>
+            <span className="font-mono text-[11px] font-bold bg-white/10 text-amber-300 px-2 py-0.5 rounded-full border border-white/20">
+              {currentUser.schoolId || currentUser.username}
+            </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black mt-1 font-display">
             Welcome, {currentUser.name}
@@ -174,9 +180,10 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
             type="button"
             onClick={() => setShowChatModal(true)}
             className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-md flex items-center space-x-2"
+            title="Open ZITEL CHAT ROOM"
           >
             <MessageSquare className="w-4 h-4" />
-            <span>Chat With Teacher</span>
+            <span>ZITEL CHAT ROOM</span>
           </button>
 
           {linkedChildren.length > 0 && (
@@ -205,10 +212,14 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
         </div>
       </div>
 
+      {/* Daily Calendar Intelligence: Active Session, Term Countdown & Upcoming Events */}
+      <DailyCalendarIntelligenceWidget currentUser={currentUser} />
+
       {/* Navigation Tabs */}
       <div className="flex items-center space-x-2 border-b border-slate-200 pb-2 overflow-x-auto">
         {[
           { id: 'performance_analytics', label: "My Child's Performance & Class Comparison", icon: BarChart3 },
+          { id: 'calendar', label: 'School Calendar', icon: Calendar },
           { id: 'behavior_timeline', label: 'Behavioral & Pastoral Timeline', icon: ShieldCheck },
           { id: 'status_reports', label: 'Pupil Status Reports', icon: FileText },
           {
@@ -252,6 +263,11 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
         })}
       </div>
 
+      {/* Tab: Calendar */}
+      {currentTab === 'calendar' && (
+        <SchoolCalendarManager currentUser={currentUser} />
+      )}
+
       {/* Tab: Performance Analytics & Class Comparison (Requirements 21, 22, 23) */}
       {currentTab === 'performance_analytics' && selectedChild && (
         <ParentPerformanceAnalytics
@@ -273,46 +289,69 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
         <div className="space-y-6">
           {/* Top Quick Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-              <span className="text-xs font-bold text-slate-500 uppercase">Term Average</span>
-              <div className="mt-2 flex items-baseline space-x-2">
-                <span className="text-2xl font-black text-slate-900">{overallAvg}%</span>
-                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                  Grade A+
-                </span>
+            <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col justify-between">
+              <div>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Term Average</span>
+                <div className="mt-2 flex items-baseline gap-2 flex-wrap">
+                  <span className="text-2xl font-black text-slate-900">{overallAvg}%</span>
+                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                    Grade A+
+                  </span>
+                </div>
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">Classroom standing: Top 10%</p>
+              <p className="text-[11px] text-slate-400 mt-2">Classroom standing: Top 10%</p>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-              <span className="text-xs font-bold text-slate-500 uppercase">Attendance Rate</span>
-              <div className="mt-2 flex items-baseline space-x-2">
-                <span className="text-2xl font-black text-emerald-600">{attendanceRate}%</span>
-                <span className="text-xs font-bold text-slate-500">Present</span>
+            <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col justify-between">
+              <div>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Attendance Rate</span>
+                <div className="mt-2 flex items-baseline gap-2 flex-wrap">
+                  <span className="text-2xl font-black text-emerald-600">{attendanceRate}%</span>
+                  <span className="text-xs font-bold text-slate-500">Present</span>
+                </div>
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">{presentDays} of {totalDays} sessions</p>
+              <p className="text-[11px] text-slate-400 mt-2">{presentDays} of {totalDays} sessions</p>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-              <span className="text-xs font-bold text-slate-500 uppercase">Homework Status</span>
-              <div className="mt-2 flex items-baseline space-x-2">
-                <span className="text-2xl font-black text-indigo-700">100%</span>
-                <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded">
-                  Up to Date
-                </span>
+            <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col justify-between">
+              <div>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Homework Status</span>
+                <div className="mt-2 flex items-baseline gap-2 flex-wrap">
+                  <span className="text-2xl font-black text-indigo-700">100%</span>
+                  <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded">
+                    Up to Date
+                  </span>
+                </div>
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">All weekly tasks turned in</p>
+              <p className="text-[11px] text-slate-400 mt-2">All weekly tasks turned in</p>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-              <span className="text-xs font-bold text-slate-500 uppercase">Fee Status</span>
-              <div className="mt-2 flex items-baseline space-x-2">
-                <span className="text-2xl font-black text-emerald-600">Settled</span>
-                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                  ₦0 Due
-                </span>
+            <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col justify-between">
+              <div>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Fee Status</span>
+                <div className="mt-2">
+                  <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                    {invoices.reduce((a, b) => a + (b.balance || 0), 0) === 0
+                      ? 'Settled'
+                      : `₦${invoices.reduce((a, b) => a + (b.balance || 0), 0).toLocaleString()}`}
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                      invoices.reduce((a, b) => a + (b.balance || 0), 0) === 0
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                        : 'bg-amber-50 text-amber-700 border border-amber-200/60'
+                    }`}>
+                      {invoices.reduce((a, b) => a + (b.balance || 0), 0) === 0 ? '₦0 Due' : 'Balance Due'}
+                    </span>
+                    <span className="text-[11px] text-slate-400 font-medium">
+                      {invoices.length} invoices
+                    </span>
+                  </div>
+                </div>
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">All invoices paid</p>
+              <p className="text-[11px] text-slate-400 mt-2">
+                {invoices.reduce((a, b) => a + (b.balance || 0), 0) === 0 ? 'All invoices paid' : 'Payment pending'}
+              </p>
             </div>
           </div>
 
@@ -358,7 +397,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                       </div>
                       <div className="flex items-center justify-between text-[10px] text-slate-500">
                         <span>Child Score: <strong className="text-indigo-700">{sub.score}%</strong></span>
-                        <span>Class Cohort Average: <strong className="text-slate-700">{sub.classAvg}%</strong></span>
+                        <span>Class Average: <strong className="text-slate-700">{sub.classAvg}%</strong></span>
                       </div>
                     </div>
                   </div>
@@ -648,7 +687,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                 <Smile className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                 <h4 className="text-sm font-bold text-slate-700">No Behavioral Records Logged</h4>
                 <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                  Your child currently has no recorded pastoral concerns or formal behavioral notices.
+                  Your child currently has no recorded behavioral concerns or formal behavioral notices.
                 </p>
               </div>
             ) : (
@@ -679,7 +718,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                               : 'bg-rose-100 text-rose-800'
                           }`}
                         >
-                          {log.status}
+                          {log.status === 'Concern' ? 'Behavioral Concern' : log.status}
                         </span>
                         <span className="text-xs font-bold text-slate-700">{log.category}</span>
                       </div>

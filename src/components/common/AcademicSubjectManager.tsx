@@ -805,9 +805,9 @@ export const AcademicSubjectManager: React.FC<AcademicSubjectManagerProps> = ({
               <select
                 value={selectedClassForAssignment}
                 onChange={e => setSelectedClassForAssignment(e.target.value)}
-                className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 max-w-full truncate"
               >
-                <option value="ALL">All Classes & Cohorts ({allClasses.length})</option>
+                <option value="ALL">All Classes ({allClasses.length})</option>
                 {allClasses.map(c => (
                   <option key={c.id} value={c.id}>
                     {c.name} ({c.branchName || 'Branch'})
@@ -1158,7 +1158,7 @@ export const AcademicSubjectManager: React.FC<AcademicSubjectManagerProps> = ({
                     onChange={e => setSubjectForm({ ...subjectForm, isCompulsory: e.target.checked })}
                     className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
                   />
-                  <span>Compulsory for all enrolled students in cohort</span>
+                  <span>Compulsory for all enrolled students in class</span>
                 </label>
 
                 <label className="flex items-center space-x-2 text-xs font-bold text-slate-700 cursor-pointer">
@@ -1212,7 +1212,7 @@ export const AcademicSubjectManager: React.FC<AcademicSubjectManagerProps> = ({
 
             <form onSubmit={handleSaveAssignment} className="mt-5 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Target Class Cohort *</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Target Class *</label>
                 <select
                   value={assignmentForm.classId}
                   onChange={e => setAssignmentForm({ ...assignmentForm, classId: e.target.value })}
@@ -1220,7 +1220,7 @@ export const AcademicSubjectManager: React.FC<AcademicSubjectManagerProps> = ({
                 >
                   {allClasses.map(c => (
                     <option key={c.id} value={c.id}>
-                      {c.name} ({c.branchName || 'Campus'})
+                      {c.name} ({c.branchName || 'Branch'})
                     </option>
                   ))}
                 </select>
@@ -1242,7 +1242,7 @@ export const AcademicSubjectManager: React.FC<AcademicSubjectManagerProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Assigned Faculty / Teacher *</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Assigned Staff / Teacher *</label>
                 <select
                   value={assignmentForm.teacherId}
                   onChange={e => setAssignmentForm({ ...assignmentForm, teacherId: e.target.value })}

@@ -43,12 +43,12 @@ export const ParentFeePaymentManager: React.FC<ParentFeePaymentManagerProps> = (
   const currency = profile.currencySymbol || '₦';
 
   const studentBranch = branches.find(b => b.id === student.branchId) || branches[0];
-  const branchName = studentBranch?.name || 'Zitel Castle School (Bungalow Campus)';
+  const branchName = studentBranch?.name || 'Zitel Castle School (Bungalow Branch)';
 
   // Bank Configuration: Branch-specific first, falling back to School Profile
   const bankConfig = studentBranch?.bankDetails || profile.bankDetails || {
     bankName: studentBranch?.id === 'branch_ijegun' ? 'Guaranty Trust Bank (GTBank) Plc' : 'Zenith Bank Plc',
-    accountName: `Zitel Castle School (${studentBranch?.name?.includes('Ijegun') ? 'Ijegun Campus' : 'Bungalow Campus'})`,
+    accountName: `Zitel Castle School (${studentBranch?.name?.includes('Ijegun') ? 'Ijegun Branch' : 'Bungalow Branch'})`,
     accountNumber: studentBranch?.id === 'branch_ijegun' ? '0238194721' : '1014582910',
     sortCode: studentBranch?.id === 'branch_ijegun' ? '058152062' : '057150013',
     paymentInstructions: 'Make transfer using the unique payment reference as narration/remarks.',
@@ -268,7 +268,7 @@ export const ParentFeePaymentManager: React.FC<ParentFeePaymentManagerProps> = (
           </h2>
           <p className="text-xs text-slate-500 max-w-xl">
             Student: <strong className="text-slate-800">{student.fullName}</strong> • ID:{' '}
-            <span className="font-mono text-indigo-700 font-bold">{student.admissionNumber || student.id}</span> • Class:{' '}
+            <span className="font-mono text-indigo-700 font-bold">{student.schoolId || student.admissionNumber || student.studentId}</span> • Class:{' '}
             <strong className="text-slate-800">{student.className}</strong> • Branch: {branchName}
           </p>
         </div>
@@ -437,10 +437,10 @@ export const ParentFeePaymentManager: React.FC<ParentFeePaymentManagerProps> = (
                 {/* Amount breakdown and action buttons */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between lg:justify-end gap-4 pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100">
                   <div className="text-left sm:text-right font-mono text-xs space-y-0.5">
-                    <div className="text-slate-400 text-[10px] uppercase font-bold">Total Billed: {currency}{inv.totalAmount.toLocaleString()}</div>
-                    <div className="text-emerald-600 font-bold">Paid: {currency}{inv.paidAmount.toLocaleString()}</div>
+                    <div className="text-slate-400 text-[10px] uppercase font-bold">Total Billed: {currency}{(inv.totalAmount || 0).toLocaleString()}</div>
+                    <div className="text-emerald-600 font-bold">Paid: {currency}{(inv.paidAmount || 0).toLocaleString()}</div>
                     <div className="text-slate-900 font-black text-sm">
-                      Balance: {currency}{inv.balance.toLocaleString()}
+                      Balance: {currency}{(inv.balance || 0).toLocaleString()}
                     </div>
                   </div>
 
@@ -539,6 +539,11 @@ export const ParentFeePaymentManager: React.FC<ParentFeePaymentManagerProps> = (
                     <td className="py-3.5 px-4 text-slate-600 font-medium">
                       <div>{pay.paymentMethod}</div>
                       {pay.bankName && <div className="text-[10px] text-slate-400">{pay.bankName}</div>}
+                      {pay.isOfflineConfirmed && (
+                        <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[9px] font-bold">
+                          Direct Bursar Confirmation
+                        </span>
+                      )}
                     </td>
                     <td className="py-3.5 px-4">
                       <span
@@ -671,7 +676,7 @@ export const ParentFeePaymentManager: React.FC<ParentFeePaymentManagerProps> = (
                   </div>
                   <div>
                     <span className="text-slate-400 text-[10px] uppercase font-bold block">Student ID / Reg No.</span>
-                    <span className="font-mono font-bold text-indigo-900">{student.admissionNumber || student.id}</span>
+                    <span className="font-mono font-bold text-indigo-900">{student.schoolId || student.admissionNumber || student.studentId}</span>
                   </div>
                   <div>
                     <span className="text-slate-400 text-[10px] uppercase font-bold block">Class & Section</span>
@@ -762,19 +767,19 @@ export const ParentFeePaymentManager: React.FC<ParentFeePaymentManagerProps> = (
                     <tr>
                       <td colSpan={3} className="py-2 px-3 text-slate-600">Total Billed:</td>
                       <td colSpan={2} className="py-2 px-3 text-right font-mono text-slate-900 font-black">
-                        {currency}{viewingInvoice.totalAmount.toLocaleString()}
+                        {currency}{(viewingInvoice.totalAmount || 0).toLocaleString()}
                       </td>
                     </tr>
                     <tr>
                       <td colSpan={3} className="py-2 px-3 text-emerald-700">Total Paid to Date:</td>
                       <td colSpan={2} className="py-2 px-3 text-right font-mono text-emerald-700">
-                        {currency}{viewingInvoice.paidAmount.toLocaleString()}
+                        {currency}{(viewingInvoice.paidAmount || 0).toLocaleString()}
                       </td>
                     </tr>
                     <tr className="text-sm bg-indigo-50/50">
                       <td colSpan={3} className="py-3 px-3 font-black text-slate-950">Net Outstanding Balance:</td>
                       <td colSpan={2} className="py-3 px-3 text-right font-mono font-black text-indigo-950 text-base">
-                        {currency}{viewingInvoice.balance.toLocaleString()}
+                        {currency}{(viewingInvoice.balance || 0).toLocaleString()}
                       </td>
                     </tr>
                   </tfoot>
@@ -1273,7 +1278,7 @@ export const ParentFeePaymentManager: React.FC<ParentFeePaymentManagerProps> = (
                 <div className="flex justify-between">
                   <span className="text-slate-500 font-medium">Student ID:</span>
                   <span className="font-mono font-bold text-slate-800">
-                    {student.admissionNumber || student.id}
+                    {student.schoolId || student.admissionNumber || student.studentId}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -1308,7 +1313,7 @@ export const ParentFeePaymentManager: React.FC<ParentFeePaymentManagerProps> = (
                 <div className="flex justify-between items-center pt-3 border-t border-slate-200 bg-emerald-50/50 p-2.5 rounded-xl mt-2">
                   <span className="text-emerald-950 font-black text-sm uppercase">Total Amount Paid:</span>
                   <span className="font-mono font-black text-lg text-emerald-700">
-                    {currency}{viewingReceipt.amount.toLocaleString()}
+                    {currency}{(viewingReceipt.amount || 0).toLocaleString()}
                   </span>
                 </div>
               </div>

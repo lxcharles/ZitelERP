@@ -28,8 +28,9 @@ import {
   Building2,
   AlertTriangle,
   BarChart3,
-  LayoutDashboard,
-  ArrowRight
+  Tag,
+  RotateCcw,
+  Archive
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -47,22 +48,47 @@ import {
 } from 'recharts';
 import {
   User,
+  Student,
   ClassRoom,
   Subject,
   FeePayment,
   TimetableSlot,
   Invoice,
-  Branch
+  Branch,
+  CredentialSlip
 } from '../../types';
 import { db } from '../../services/db';
+import { CredentialSlipModal } from '../common/CredentialSlipModal';
+import { ConfirmOfflinePaymentModal } from './ConfirmOfflinePaymentModal';
+import { FinancialMetricCard } from '../common/FinancialMetricCard';
 import { BulkStudentUploadModal } from '../common/BulkStudentUploadModal';
 import { AcademicSubjectManager } from '../common/AcademicSubjectManager';
 import { BehaviorCategorySettings } from './BehaviorCategorySettings';
 import { WeeklyTeacherReportManager } from '../teacher/WeeklyTeacherReportManager';
 import { FinancialDashboardTab } from './FinancialDashboardTab';
-import { ActiveTermFinancialSummaryCard } from './ActiveTermFinancialSummaryCard';
-import { ChiefBursarFinanceDashboard } from './ChiefBursarFinanceDashboard';
+import { TeacherStatusModal } from './TeacherStatusModal';
+import { StudentStatusModal } from './StudentStatusModal';
+import { AdminStudentEnrollmentModal } from './AdminStudentEnrollmentModal';
+import { ParentDuplicateMergeHub } from './ParentDuplicateMergeHub';
+import { MessagingConfigHub } from './MessagingConfigHub';
+import { FeeCategoryManager } from './FeeCategoryManager';
+import { FeeDiscountManager } from './FeeDiscountManager';
+import { FeeRefundManager } from './FeeRefundManager';
+import { FinancialReportDispatcher } from './FinancialReportDispatcher';
+import { DailyCalendarIntelligenceWidget } from '../common/DailyCalendarIntelligenceWidget';
+import { SchoolCalendarManager } from '../calendar/SchoolCalendarManager';
+import { StudentPromotionManager } from '../promotion/StudentPromotionManager';
+import { AcademicArchiveViewer } from '../archive/AcademicArchiveViewer';
+import { FormerStudentsHub } from '../archive/FormerStudentsHub';
 import { exportStudentsToCSV, exportFinancialsToCSV } from '../../utils/exportCsv';
+import { GitMerge, Radio, UserPlus, History } from 'lucide-react';
+import { isDirector, isSuperAdmin } from '../../utils/roles';
+import { InstitutionalAuditLog } from './InstitutionalAuditLog';
+import { StaffAttendanceCheckInWidget } from '../common/StaffAttendanceCheckInWidget';
+import { StaffAttendanceHRMonitor } from './StaffAttendanceHRMonitor';
+import { StaffRosterTable } from './StaffRosterTable';
+import { StaffPerformanceDashboard } from '../director/StaffPerformanceDashboard';
+import { ClassEvaluationDashboard } from '../director/ClassEvaluationDashboard';
 
 interface AdminDashboardProps {
   currentUser: User;
@@ -73,34 +99,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   currentUser,
   activeTab,
 }) => {
-  // Check if current user is Chief Finance or Bursar
-  const isChiefFinanceOrBursar =
-    currentUser.scope === 'FINANCE_ONLY' ||
-    Boolean(currentUser.customRoleTitle?.toLowerCase().includes('bursar')) ||
-    Boolean(currentUser.customRoleTitle?.toLowerCase().includes('finance')) ||
-    currentUser.username === 'bursar.central';
+  const isBursar = currentUser.scope === 'FINANCE_ONLY' || Boolean(currentUser.customRoleTitle?.toLowerCase().includes('bursar'));
 
-  const [currentTab, setCurrentTab] = useState<
-    | 'overview'
-    | 'teachers'
-    | 'classes'
-    | 'curriculum'
-    | 'timetable'
-    | 'financial_dashboard'
-    | 'finance'
-    | 'broadcast'
-    | 'behavior_categories'
-    | 'weekly_reports'
-  >((activeTab as any) || (isChiefFinanceOrBursar ? 'financial_dashboard' : 'overview'));
+  const getInitialTab = () => {
+    if (isBursar) {
+      if (activeTab === 'overview' || !activeTab) return 'financial_dashboard';
+      return activeTab as any;
+    }
+    return (activeTab as any) || 'teachers';
+  };
+
+  const [currentTab, setCurrentTab] = useState<'teachers' | 'staff_roster' | 'staff_attendance' | 'staff_performance' | 'class_evaluation' | 'classes' | 'promotion' | 'archives' | 'former_students' | 'curriculum' | 'timetable' | 'financial_dashboard' | 'finance' | 'fee_categories' | 'fee_discounts' | 'fee_refunds' | 'financial_reports' | 'broadcast' | 'behavior_categories' | 'weekly_reports' | 'parent_duplicates' | 'messaging_config' | 'audit_logs' | 'calendar'>(
+    getInitialTab()
+  );
 
   useEffect(() => {
     if (activeTab) {
-      setCurrentTab(activeTab as any);
+      if (isBursar && activeTab === 'overview') {
+        setCurrentTab('financial_dashboard');
+      } else {
+        setCurrentTab(activeTab as any);
+      }
     }
-  }, [activeTab]);
+  }, [activeTab, isBursar]);
 
   // Modals
   const [showCreateTeacherModal, setShowCreateTeacherModal] = useState(false);
+  const [selectedTeacherForStatus, setSelectedTeacherForStatus] = useState<User | null>(null);
+  const [selectedStudentForStatus, setSelectedStudentForStatus] = useState<Student | null>(null);
+  const [classViewMode, setClassViewMode] = useState<'classes' | 'students' | 'promotion' | 'archives' | 'former_students'>('classes');
+  const [studentFilterClass, setStudentFilterClass] = useState<string>('all');
+  const [studentSearchQuery, setStudentSearchQuery] = useState<string>('');
+  const [studentStatusFilter, setStudentStatusFilter] = useState<string>('all');
+  const [showEnrollStudentModal, setShowEnrollStudentModal] = useState(false);
   const [showCreateClassModal, setShowCreateClassModal] = useState(false);
   const [showBulkStudentUploadModal, setShowBulkStudentUploadModal] = useState(false);
   const [showCreateSubjectModal, setShowCreateSubjectModal] = useState(false);
@@ -110,6 +141,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [selectedPaymentForReview, setSelectedPaymentForReview] = useState<FeePayment | null>(null);
   const [reviewRemarks, setReviewRemarks] = useState('');
   const [bulkSuccessMsg, setBulkSuccessMsg] = useState<string | null>(null);
+  const [activeCredentialSlip, setActiveCredentialSlip] = useState<CredentialSlip | null>(null);
+
+  // Manual Offline Payment Confirmation State (Chief Bursar Only)
+  const [showConfirmOfflinePaymentModal, setShowConfirmOfflinePaymentModal] = useState(false);
+  const [selectedInvoiceForOfflineConfirm, setSelectedInvoiceForOfflineConfirm] = useState<Invoice | null>(null);
 
   // Automated Payment Reminder State
   const [showBulkRemindersModal, setShowBulkRemindersModal] = useState(false);
@@ -130,14 +166,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   });
 
   const [classForm, setClassForm] = useState({
-    name: 'Primary 4A',
+    name: 'Basic 4',
     gradeLevel: 4,
-    section: 'A',
+    section: '',
     roomNumber: 'Room 204',
     capacity: 25,
-    formTeacherId: 'user_teacher_sarah',
-    formTeacherName: 'Sarah Jenkins',
-    academicYear: '2025/2026',
+    formTeacherId: 'user_teacher_chibuzo',
+    formTeacherName: 'Ms. Chibuzo',
+    academicYear: '2026/2027',
   });
 
   const [subjectForm, setSubjectForm] = useState({
@@ -149,12 +185,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   });
 
   const [timetableForm, setTimetableForm] = useState({
-    classId: 'cls_p3a',
-    className: 'Primary 3A',
+    classId: 'cls_basic3a_bgl',
+    className: 'Basic 3',
     subjectId: 'sub_math',
     subjectName: 'Mathematics',
-    teacherId: 'user_teacher_sarah',
-    teacherName: 'Sarah Jenkins',
+    teacherId: 'user_teacher_favour_akpan',
+    teacherName: 'Ms. Favour Akpan',
     day: 'Monday' as 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday',
     startTime: '09:00',
     endTime: '09:45',
@@ -194,7 +230,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const outstanding = bInvoices.reduce((acc, i) => acc + i.balance, 0);
     const billed = bInvoices.reduce((acc, i) => acc + i.totalAmount, 0);
     const rate = billed > 0 ? Math.round((paid / billed) * 100) : 0;
-    const cleanName = b.name.includes('Bungalow') ? 'Bungalow Campus' : b.name.includes('Ijegun') ? 'Ijegun Campus' : b.name;
+    const cleanName = b.name.includes('Bungalow') ? 'Bungalow Branch' : b.name.includes('Ijegun') ? 'Ijegun Branch' : b.name;
     return {
       id: b.id,
       name: cleanName,
@@ -257,34 +293,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Create Teacher
+  // Create Teacher with Official School ID, Firebase UID & Credential Slip
   const handleCreateTeacher = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!teacherForm.name || !teacherForm.email || !teacherForm.username) {
+    if (!teacherForm.name || !teacherForm.email) {
       alert('Please fill all required fields');
       return;
     }
 
-    const staffId = `TCH-2026-${String(teachers.length + 1).padStart(3, '0')}`;
-    db.createUser(
+    const activeBranch = db.getActiveBranchId();
+    const branchId = currentUser.branchId || (activeBranch !== 'all' ? activeBranch : 'branch_bungalow');
+    const branchName = currentUser.branchName || (branchId === 'branch_ijegun' ? 'Zitel Castle School Ijegun' : 'Zitel Castle School Bungalow');
+
+    const nameParts = teacherForm.name.trim().split(' ');
+    const firstName = nameParts[0] || 'Staff';
+    const lastName = nameParts.slice(1).join(' ') || 'Member';
+
+    const result = db.adminCreateTeacherAccount(
       {
-        name: teacherForm.name,
+        firstName,
+        lastName,
+        gender: 'Female',
         email: teacherForm.email,
-        username: teacherForm.username,
-        role: 'TEACHER',
-        status: 'active',
-        staffId,
         phone: teacherForm.phone,
+        branchId,
+        branchName,
         assignedClasses: teacherForm.assignedClasses,
         assignedSubjects: teacherForm.assignedSubjects,
         qualifications: teacherForm.qualifications,
-        permissions: [],
-        avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120',
       },
       currentUser
     );
 
     setShowCreateTeacherModal(false);
+    setActiveCredentialSlip(result.credentialSlip);
     setTeacherForm({
       name: '',
       email: '',
@@ -294,6 +336,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       assignedSubjects: ['sub_math'],
       qualifications: 'B.Ed in Primary Education',
     });
+  };
+
+  const handleResetTeacherPassword = (teacher: User) => {
+    if (window.confirm(`Generate new temporary access credentials for staff member ${teacher.name} (${teacher.schoolId})?`)) {
+      const resultSlip = db.adminResetUserPassword(teacher.id, currentUser);
+      setActiveCredentialSlip(resultSlip);
+    }
   };
 
   // Create Class
@@ -431,15 +480,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div>
           <div className="flex items-center space-x-2">
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 uppercase tracking-wider">
-              Administrator Console
+              {isDirector(currentUser) ? 'Director Console' : isBursar ? 'Financial Controller Console' : 'Administrator Console'}
             </span>
-            <span className="text-xs text-slate-400 font-mono">• Delegated School Operations</span>
+            <span className="text-xs text-slate-400 font-mono">
+              • {isDirector(currentUser) ? 'Cross-Branch Academic & Institutional Oversight' : isBursar ? 'Centralized Multi-Branch Bursary' : 'Delegated School Operations'}
+            </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black mt-1 font-display">
-            {currentUser.customRoleTitle || 'Academic & Operational Management'}
+            {isDirector(currentUser) ? `Welcome, ${currentUser.name}` : isBursar ? (currentUser.customRoleTitle || 'Chief Bursar & Financial Controller') : (currentUser.customRoleTitle || 'Academic & Operational Management')}
           </h1>
           <p className="text-xs text-slate-300">
-            Scope: <span className="font-semibold text-indigo-300">{currentUser.scope || 'ALL_SCHOOL'}</span>
+            Role: <span className="font-semibold text-emerald-300">{isDirector(currentUser) ? 'Director' : isBursar ? 'Chief Bursar' : 'Branch Administrator'}</span>
+            <span className="mx-2 text-slate-500">•</span>
+            Scope: <span className="font-semibold text-indigo-300">{currentUser.scope || (isBursar ? 'FINANCE_ONLY' : 'ALL_SCHOOL')}</span>
           </p>
         </div>
 
@@ -447,7 +500,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="p-2.5 rounded-xl bg-white/10 border border-white/10 text-xs text-slate-200 flex items-center space-x-2">
           <Lock className="w-4 h-4 text-amber-400 shrink-0" />
           <span className="text-[11px] leading-tight">
-            Role Enforcement: Only Super Admin can create/manage Admin accounts.
+            {isDirector(currentUser)
+              ? 'Institutional Director: Complete cross-branch academic, staff, curriculum, and operational oversight.'
+              : isBursar
+              ? 'Chief Bursar role is strictly financial. Academic & student enrollments are managed by academic administrators.'
+              : 'Role Enforcement: Only Super Admin can create/manage Admin accounts.'}
           </span>
         </div>
       </div>
@@ -489,6 +546,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
+      {/* Daily Staff Attendance Check-in Widget (Immediate Clock-in for Teachers & Staff) */}
+      <StaffAttendanceCheckInWidget currentUser={currentUser} />
+
+      {/* Daily Calendar Intelligence: Active Session, Term Countdown & Upcoming Events */}
+      <DailyCalendarIntelligenceWidget currentUser={currentUser} />
+
       {/* Automated Reminder Feedback Toast Banner */}
       {reminderFeedbackMsg && (
         <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between shadow-xs">
@@ -507,24 +570,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* Tabs */}
       <div className="flex items-center space-x-2 border-b border-slate-200 pb-2 overflow-x-auto">
-        {(isChiefFinanceOrBursar
+        {(isBursar
           ? [
-              { id: 'overview', label: 'Bursary Executive Overview', icon: BarChart3 },
-              { id: 'financial_dashboard', label: 'Multi-Branch Analytics', icon: TrendingUp },
-              { id: 'finance', label: 'Fee Invoicing & Accounts', icon: DollarSign },
-              { id: 'broadcast', label: 'Financial Notices & Broadcasts', icon: MessageSquare },
+              { id: 'financial_dashboard', label: 'Financial Analytics', icon: BarChart3 },
+              { id: 'finance', label: 'Fee Management & Invoices', icon: DollarSign },
+              { id: 'fee_categories', label: 'Fee Categories', icon: Tag },
+              { id: 'fee_discounts', label: 'Discounts & Concessions', icon: Sparkles },
+              { id: 'fee_refunds', label: 'Refunds & Reversals', icon: RotateCcw },
+              { id: 'financial_reports', label: 'Report Dispatches', icon: FileSpreadsheet },
+              { id: 'broadcast', label: 'Financial Notices & Reminders', icon: MessageSquare },
             ]
           : [
-              { id: 'overview', label: 'Dashboard Overview', icon: LayoutDashboard },
-              { id: 'financial_dashboard', label: 'Financial Dashboard', icon: BarChart3 },
-              { id: 'finance', label: 'Fee Management & Invoicing', icon: DollarSign },
-              { id: 'teachers', label: 'Faculty & Teachers', icon: GraduationCap },
-              { id: 'classes', label: 'Classes & Cohorts', icon: Layers },
+              { id: 'teachers', label: 'Teaching Staff & Teachers', icon: GraduationCap },
+              { id: 'staff_roster', label: 'Staff Roster & HR Directory', icon: Users },
+              { id: 'staff_attendance', label: 'Staff Attendance & HR Monitor', icon: Clock },
+              { id: 'classes', label: 'Classes', icon: Layers },
+              { id: 'promotion', label: 'Student Promotion', icon: Sparkles },
+              { id: 'archives', label: 'Academic Archives', icon: Archive },
+              { id: 'former_students', label: 'Former Students', icon: Users },
+              { id: 'calendar', label: 'School Calendar', icon: Calendar },
+              { id: 'parent_duplicates', label: 'Parent Accounts & Duplicates', icon: GitMerge },
+              { id: 'messaging_config', label: 'Messaging & Delivery Gateways', icon: Radio },
               { id: 'weekly_reports', label: 'Weekly Teacher Reports', icon: ShieldCheck },
               { id: 'behavior_categories', label: 'Behavior Categories', icon: Settings },
               { id: 'curriculum', label: 'Curriculum & Subjects', icon: BookOpen },
               { id: 'timetable', label: 'Timetable Scheduling', icon: Calendar },
+              { id: 'financial_dashboard', label: 'Financial Dashboard', icon: BarChart3 },
+              { id: 'finance', label: 'Fee Management & Invoicing', icon: DollarSign },
               { id: 'broadcast', label: 'School Broadcasts', icon: MessageSquare },
+              ...((isDirector(currentUser) || isSuperAdmin(currentUser))
+                ? [{ id: 'audit_logs', label: 'Institutional Audit Log', icon: History }]
+                : []),
             ]
         ).map(t => {
           const Icon = t.icon;
@@ -533,7 +609,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <button
               key={t.id}
               onClick={() => setCurrentTab(t.id as any)}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer ${
+              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
                 isCurrent
                   ? 'bg-indigo-600 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -546,147 +622,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         })}
       </div>
 
-      {/* Tab: Overview (Default Landing View) */}
-      {currentTab === 'overview' && (
-        <div className="space-y-6">
-          {isChiefFinanceOrBursar ? (
-            <ChiefBursarFinanceDashboard
-              currentUser={currentUser}
-              onRecordPayment={(inv) => {
-                setShowRecordPaymentModal(inv);
-                setPaymentForm({ amount: inv.balance, paymentMethod: 'CARD' });
-              }}
-              onTriggerReminder={(inv) => {
-                setSelectedInvoiceForReminder(inv);
-                setReminderCustomNote('');
-              }}
-              onIssueInvoice={() => setShowCreateInvoiceModal(true)}
-            />
-          ) : (
-            <>
-              {/* Operational KPI Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                  <div className="flex items-center justify-between text-slate-500 mb-1">
-                    <span className="text-xs font-bold uppercase tracking-wider">Enrolled Students</span>
-                    <Users className="w-4 h-4 text-indigo-500" />
-                  </div>
-                  <p className="text-2xl font-black text-slate-900 font-mono">{students.length}</p>
-                  <span className="text-[11px] text-slate-500 mt-1 block">Active across campuses</span>
-                </div>
+      {/* Tab: Calendar */}
+      {currentTab === 'calendar' && (
+        <SchoolCalendarManager currentUser={currentUser} />
+      )}
 
-                <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                  <div className="flex items-center justify-between text-slate-500 mb-1">
-                    <span className="text-xs font-bold uppercase tracking-wider">Active Cohorts</span>
-                    <Layers className="w-4 h-4 text-purple-500" />
-                  </div>
-                  <p className="text-2xl font-black text-slate-900 font-mono">{classes.length}</p>
-                  <span className="text-[11px] text-slate-500 mt-1 block">Primary & Secondary</span>
-                </div>
+      {/* Tab: Staff Roster & HR Directory */}
+      {currentTab === 'staff_roster' && (
+        <StaffRosterTable branches={branches} />
+      )}
 
-                <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                  <div className="flex items-center justify-between text-slate-500 mb-1">
-                    <span className="text-xs font-bold uppercase tracking-wider">Teaching Faculty</span>
-                    <GraduationCap className="w-4 h-4 text-emerald-500" />
-                  </div>
-                  <p className="text-2xl font-black text-slate-900 font-mono">{teachers.length}</p>
-                  <span className="text-[11px] text-slate-500 mt-1 block">Subject & Form Teachers</span>
-                </div>
+      {/* Tab: Staff Attendance & HR Monitor */}
+      {currentTab === 'staff_attendance' && (
+        <StaffAttendanceHRMonitor branches={branches} />
+      )}
 
-                <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-                  <div className="flex items-center justify-between text-emerald-700 mb-1">
-                    <span className="text-xs font-bold uppercase tracking-wider">Term Collection</span>
-                    <TrendingUp className="w-4 h-4 text-emerald-600" />
-                  </div>
-                  <p className="text-2xl font-black text-emerald-700 font-mono">
-                    {invoices.reduce((a, b) => a + b.totalAmount, 0) > 0
-                      ? `${Math.round((invoices.reduce((a, b) => a + b.paidAmount, 0) / invoices.reduce((a, b) => a + b.totalAmount, 0)) * 100)}%`
-                      : '0%'}
-                  </p>
-                  <span className="text-[11px] text-emerald-600 font-bold mt-1 block">
-                    {currency}{invoices.reduce((a, b) => a + b.paidAmount, 0).toLocaleString()} Collected
-                  </span>
-                </div>
-              </div>
-
-              {/* Requirement: Financial Summary card using Recharts plotting 'Total Paid' vs 'Outstanding' balances aggregated by branch for the currently active academic term */}
-              <ActiveTermFinancialSummaryCard
-                currentUser={currentUser}
-                onNavigateToFinance={() => setCurrentTab('financial_dashboard')}
-                onNavigateToLedger={() => setCurrentTab('finance')}
-              />
-
-              {/* Operational Quick Actions & Faculty Overview */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-bold text-slate-900">Assigned Faculty & Active Cohorts</h3>
-                      <p className="text-xs text-slate-500">Quick oversight of class rooms and form teachers.</p>
-                    </div>
-                    <button
-                      onClick={() => setCurrentTab('teachers')}
-                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center space-x-1 cursor-pointer"
-                    >
-                      <span>View Full Roster</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {classes.slice(0, 4).map(c => (
-                      <div key={c.id} className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
-                        <div>
-                          <h4 className="font-bold text-slate-900 text-xs">{c.name}</h4>
-                          <span className="text-[11px] text-slate-500">Form: {c.formTeacherName}</span>
-                        </div>
-                        <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-mono text-[10px] font-bold">
-                          {c.roomNumber}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-indigo-950 text-white shadow-xs space-y-3 flex flex-col justify-between">
-                  <div>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 uppercase tracking-wider">
-                      Quick Actions
-                    </span>
-                    <h3 className="text-base font-bold mt-2">Administrative Shortcuts</h3>
-                    <p className="text-xs text-slate-300 mt-1">
-                      Directly execute frequent operational workflows.
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => setShowCreateTeacherModal(true)}
-                      className="w-full py-2 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/10 transition-all flex items-center justify-between cursor-pointer"
-                    >
-                      <span>Onboard New Teacher</span>
-                      <Plus className="w-4 h-4 text-indigo-300" />
-                    </button>
-                    <button
-                      onClick={() => setShowCreateClassModal(true)}
-                      className="w-full py-2 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/10 transition-all flex items-center justify-between cursor-pointer"
-                    >
-                      <span>Create Class Cohort</span>
-                      <Plus className="w-4 h-4 text-indigo-300" />
-                    </button>
-                    <button
-                      onClick={() => setCurrentTab('financial_dashboard')}
-                      className="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-between cursor-pointer"
-                    >
-                      <span>Open Financial Dashboard</span>
-                      <BarChart3 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+      {/* Tab: Staff Performance & Activity */}
+      {currentTab === 'staff_performance' && (
+        <StaffPerformanceDashboard
+          currentUser={currentUser}
+          branches={branches}
+          selectedBranchId={currentUser.branchId || 'all'}
+          onNavigateToTab={setCurrentTab}
+        />
       )}
 
       {/* Tab: Teachers */}
@@ -694,8 +652,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Faculty Roster & Class Assignments</h2>
-              <p className="text-xs text-slate-500">Onboard faculty members and assign primary classes and teaching subjects.</p>
+              <h2 className="text-base font-bold text-slate-900">Teaching Staff Roster & Class Assignments</h2>
+              <p className="text-xs text-slate-500">Onboard teaching staff, manage lifecycle statuses (Active/Suspended/Deactivated/Archived), and preserve academic history.</p>
             </div>
             <button
               onClick={() => setShowCreateTeacherModal(true)}
@@ -707,56 +665,111 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {teachers.map(tch => (
-              <div
-                key={tch.id}
-                className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3 flex flex-col justify-between"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-3">
-                    <img
-                      src={tch.avatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120'}
-                      alt={tch.name}
-                      className="w-11 h-11 rounded-full object-cover ring-2 ring-indigo-100"
-                    />
-                    <div>
-                      <h3 className="font-bold text-slate-900 text-sm">{tch.name}</h3>
-                      <span className="font-mono text-[11px] text-slate-400 block">{tch.staffId}</span>
+            {teachers.map(tch => {
+              const status = tch.status || 'active';
+              const statusBadgeClasses =
+                status === 'active'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : status === 'suspended'
+                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                  : status === 'archived'
+                  ? 'bg-slate-100 text-slate-700 border-slate-300'
+                  : 'bg-rose-50 text-rose-700 border-rose-200';
+
+              return (
+                <div
+                  key={tch.id}
+                  className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3 flex flex-col justify-between"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center space-x-3">
+                      <img
+                        src={tch.avatar || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120'}
+                        alt={tch.name}
+                        className="w-11 h-11 rounded-full object-cover ring-2 ring-indigo-100"
+                      />
+                      <div>
+                        <h3 className="font-bold text-slate-900 text-sm">{tch.name}</h3>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="font-mono text-[11px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                            {tch.schoolId || tch.staffId}
+                          </span>
+                          {tch.mustChangePassword && (
+                            <span className="text-[9px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded">
+                              Temp Pass
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <span className={`text-[10px] font-bold border px-2 py-0.5 rounded-full uppercase ${statusBadgeClasses}`}>
+                      {status}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span>Assigned Branch:</span>
+                      <span className="font-semibold text-slate-800">
+                        {tch.branchName || 'Zitel Castle School'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span>Assigned Classes:</span>
+                      <span className="font-semibold text-slate-900">
+                        {tch.assignedClasses?.map(c => classes.find(cl => cl.id === c)?.name).join(', ') || 'None'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span>Subjects:</span>
+                      <span className="font-semibold text-indigo-700">
+                        {tch.assignedSubjects?.map(s => subjects.find(sub => sub.id === s)?.name).join(', ') || 'All'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span>Teacher ID:</span>
+                      <span className="font-mono text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 truncate max-w-[130px]">
+                        {tch.schoolId || tch.staffId || tch.username}
+                      </span>
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">
-                    {tch.status.toUpperCase()}
-                  </span>
-                </div>
 
-                <div className="space-y-1.5 text-xs">
-                  <div className="flex items-center justify-between text-slate-600">
-                    <span>Assigned Classes:</span>
-                    <span className="font-semibold text-slate-900">
-                      {tch.assignedClasses?.map(c => classes.find(cl => cl.id === c)?.name).join(', ') || 'None'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-slate-600">
-                    <span>Subjects:</span>
-                    <span className="font-semibold text-indigo-700">
-                      {tch.assignedSubjects?.map(s => subjects.find(sub => sub.id === s)?.name).join(', ') || 'All'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-slate-600">
-                    <span>Qualifications:</span>
-                    <span className="italic text-slate-700 truncate max-w-[140px]">
-                      {tch.qualifications?.[0] || 'B.Ed'}
-                    </span>
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                    <span className="truncate max-w-[110px]">{tch.email}</span>
+                    <div className="flex items-center space-x-1.5">
+                      <button
+                        onClick={() => setSelectedTeacherForStatus(tch)}
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg border border-slate-200 transition-colors cursor-pointer"
+                        title="Manage teacher active/suspended/deactivated/archived status"
+                      >
+                        <ShieldCheck className="w-3 h-3 text-slate-500" />
+                        <span>Status</span>
+                      </button>
+                      <button
+                        onClick={() => handleResetTeacherPassword(tch)}
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-lg border border-indigo-200/80 transition-colors cursor-pointer"
+                        title="Generate new temporary credentials and voucher slip"
+                      >
+                        <Lock className="w-3 h-3 text-indigo-500" />
+                        <span>Reset</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-                  <span>{tch.email}</span>
-                  <span className="font-mono">{tch.phone}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
+        </div>
+      )}
+
+      {/* Tab: Class Performance & Evaluation */}
+      {currentTab === 'class_evaluation' && (
+        <div className="space-y-4">
+          <ClassEvaluationDashboard
+            currentUser={currentUser}
+            branches={branches}
+            selectedBranchId={currentUser.branchId || 'all'}
+          />
         </div>
       )}
 
@@ -780,17 +793,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Class Cohorts & Sections (Primary 1 to 6)</h2>
-              <p className="text-xs text-slate-500">Configure classroom capacities, form teachers, and enrollment limits.</p>
+              <h2 className="text-base font-bold text-slate-900">Classes & Student Directory (Primary 1 to 6)</h2>
+              <p className="text-xs text-slate-500">Configure classroom capacities, view student rosters, and manage student lifecycle statuses.</p>
             </div>
             <div className="flex items-center space-x-2 shrink-0">
+              <button
+                onClick={() => setShowEnrollStudentModal(true)}
+                className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-bold shadow-xs cursor-pointer"
+                title="Enroll New Student with Parent Matching & Credential Slip"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Enroll Student</span>
+              </button>
               <button
                 onClick={() => exportStudentsToCSV(students, classes)}
                 className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold shadow-2xs transition-all cursor-pointer"
                 title="Download Student Roster CSV"
               >
                 <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                <span>Export Students</span>
+                <span>Export CSV</span>
               </button>
               <button
                 onClick={() => setShowBulkStudentUploadModal(true)}
@@ -802,59 +823,296 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </button>
               <button
                 onClick={() => setShowCreateClassModal(true)}
-                className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-bold shadow-xs cursor-pointer"
+                className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-slate-800 text-white hover:bg-slate-900 text-xs font-bold shadow-xs cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>Create New Class</span>
+                <span>Create Class</span>
               </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {classes.map(cl => (
-              <div key={cl.id} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-sm">
-                      P{cl.gradeLevel}
+          {/* Sub-view toggle: Classes overview vs Student Roster */}
+          <div className="flex items-center space-x-2 border-b border-slate-200 pb-2">
+            <button
+              onClick={() => setClassViewMode('classes')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                classViewMode === 'classes'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Class Capacities ({classes.length})
+            </button>
+            <button
+              onClick={() => setClassViewMode('students')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                classViewMode === 'students'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Student Roster & Lifecycle ({students.length})
+            </button>
+            <button
+              onClick={() => setClassViewMode('promotion')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                classViewMode === 'promotion'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Student Promotion
+            </button>
+            <button
+              onClick={() => setClassViewMode('archives')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                classViewMode === 'archives'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Academic Archives
+            </button>
+            <button
+              onClick={() => setClassViewMode('former_students')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                classViewMode === 'former_students'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Former Students
+            </button>
+          </div>
+
+          {classViewMode === 'classes' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {classes.map(cl => (
+                <div key={cl.id} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-sm">
+                        P{cl.gradeLevel}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900 text-sm">{cl.name}</h3>
+                        <p className="text-xs text-slate-500">{cl.roomNumber}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-bold text-slate-900 text-sm">{cl.name}</h3>
-                      <p className="text-xs text-slate-500">{cl.roomNumber}</p>
+                    <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg">
+                      {cl.enrolledCount} / {cl.capacity} Enrolled
+                    </span>
+                  </div>
+
+                  <div className="space-y-1 text-xs text-slate-600">
+                    <p>
+                      <span className="text-slate-400">Form Teacher:</span>{' '}
+                      <span className="font-semibold text-slate-800">{cl.formTeacherName}</span>
+                    </p>
+                    <p>
+                      <span className="text-slate-400">Academic Year:</span> {cl.academicYear}
+                    </p>
+                  </div>
+
+                  {/* Capacity Progress Bar */}
+                  <div className="space-y-1">
+                    <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className="h-full bg-indigo-600 rounded-full transition-all"
+                        style={{ width: `${Math.min(100, (cl.enrolledCount / cl.capacity) * 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                      <span>0</span>
+                      <span>Capacity: {cl.capacity}</span>
                     </div>
                   </div>
-                  <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg">
-                    {cl.enrolledCount} / {cl.capacity} Enrolled
-                  </span>
+
+                  <button
+                    onClick={() => {
+                      setStudentFilterClass(cl.id);
+                      setClassViewMode('students');
+                    }}
+                    className="w-full py-1.5 rounded-xl border border-indigo-100 bg-indigo-50/50 hover:bg-indigo-50 text-indigo-700 text-xs font-bold transition-colors"
+                  >
+                    View Class Pupils & Statuses →
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Filter controls */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs">
+                <div className="flex items-center space-x-2 overflow-x-auto">
+                  <select
+                    value={studentFilterClass}
+                    onChange={e => setStudentFilterClass(e.target.value)}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="all">All Classes</option>
+                    {classes.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={studentStatusFilter}
+                    onChange={e => setStudentStatusFilter(e.target.value)}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="Active">Active</option>
+                    <option value="Suspended">Suspended</option>
+                    <option value="Transferred">Transferred</option>
+                    <option value="Graduated">Graduated</option>
+                    <option value="Withdrawn">Withdrawn</option>
+                    <option value="Archived">Archived</option>
+                  </select>
                 </div>
 
-                <div className="space-y-1 text-xs text-slate-600">
-                  <p>
-                    <span className="text-slate-400">Form Teacher:</span>{' '}
-                    <span className="font-semibold text-slate-800">{cl.formTeacherName}</span>
-                  </p>
-                  <p>
-                    <span className="text-slate-400">Academic Year:</span> {cl.academicYear}
-                  </p>
-                </div>
-
-                {/* Capacity Progress Bar */}
-                <div className="space-y-1">
-                  <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
-                    <div
-                      className="h-full bg-indigo-600 rounded-full transition-all"
-                      style={{ width: `${Math.min(100, (cl.enrolledCount / cl.capacity) * 100)}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                    <span>0</span>
-                    <span>Capacity: {cl.capacity}</span>
-                  </div>
+                <div className="relative shrink-0 sm:w-64">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    placeholder="Search student name, ID..."
+                    value={studentSearchQuery}
+                    onChange={e => setStudentSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                  />
                 </div>
               </div>
-            ))}
-          </div>
+
+              {/* Student Cards Roster */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {students
+                  .filter(st => {
+                    if (studentFilterClass !== 'all' && st.classId !== studentFilterClass) return false;
+                    if (studentStatusFilter !== 'all' && (st.status || 'Active') !== studentStatusFilter) return false;
+                    if (studentSearchQuery) {
+                      const q = studentSearchQuery.toLowerCase();
+                      const parentObj = allUsers.find(u => u.id === st.parentId || (st.parentIds && st.parentIds.includes(u.id)));
+                      return (
+                        st.fullName.toLowerCase().includes(q) ||
+                        (st.studentId && st.studentId.toLowerCase().includes(q)) ||
+                        (st.schoolId && st.schoolId.toLowerCase().includes(q)) ||
+                        (parentObj && parentObj.name.toLowerCase().includes(q))
+                      );
+                    }
+                    return true;
+                  })
+                  .map(st => {
+                    const status = st.status || 'Active';
+                    const parentObj = allUsers.find(u => u.id === st.parentId || (st.parentIds && st.parentIds.includes(u.id)));
+                    const statusClass =
+                      status === 'Active'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : status === 'Suspended'
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : status === 'Graduated'
+                        ? 'bg-purple-50 text-purple-700 border-purple-200'
+                        : status === 'Transferred'
+                        ? 'bg-sky-50 text-sky-700 border-sky-200'
+                        : 'bg-slate-100 text-slate-700 border-slate-300';
+
+                    return (
+                      <div
+                        key={st.id}
+                        className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3 flex flex-col justify-between"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center space-x-3">
+                              <img
+                                src={st.avatar || 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=120'}
+                                alt={st.fullName}
+                                className="w-10 h-10 rounded-full object-cover ring-2 ring-indigo-50"
+                              />
+                              <div>
+                                <h4 className="font-bold text-xs text-slate-900">{st.fullName}</h4>
+                                <div className="flex items-center space-x-1.5 mt-0.5">
+                                  <span className="font-mono text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded">
+                                    {st.schoolId || st.studentId}
+                                  </span>
+                                  <span className="text-[10px] text-slate-500 font-semibold">{st.className}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border ${statusClass}`}>
+                              {status}
+                            </span>
+                          </div>
+
+                          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs space-y-1">
+                            <div className="flex justify-between text-slate-600">
+                              <span className="text-slate-400">Parent / Guardian:</span>
+                              <span className="font-semibold text-slate-800">{parentObj?.name || 'Unassigned'}</span>
+                            </div>
+                            <div className="flex justify-between text-slate-600">
+                              <span className="text-slate-400">Parent Phone:</span>
+                              <span className="font-mono text-slate-700">{parentObj?.phone || st.primaryContactPhone || '—'}</span>
+                            </div>
+                            {st.statusReason && (
+                              <div className="pt-1 border-t border-slate-200 text-[10px] text-slate-500">
+                                <span className="font-bold">Status Note:</span> {st.statusReason}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => setSelectedStudentForStatus(st)}
+                          className="w-full py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center space-x-1.5 transition-colors cursor-pointer"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>Manage Lifecycle Status</span>
+                        </button>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+
+          {classViewMode === 'promotion' && (
+            <StudentPromotionManager
+              currentUser={currentUser}
+              onViewStudentArchive={() => setClassViewMode('archives')}
+            />
+          )}
+
+          {classViewMode === 'archives' && (
+            <AcademicArchiveViewer currentUser={currentUser} />
+          )}
+
+          {classViewMode === 'former_students' && (
+            <FormerStudentsHub
+              currentUser={currentUser}
+              onOpenStudentArchive={() => setClassViewMode('archives')}
+            />
+          )}
         </div>
+      )}
+
+      {/* Tab: Student Promotion */}
+      {currentTab === 'promotion' && (
+        <StudentPromotionManager
+          currentUser={currentUser}
+          onViewStudentArchive={() => setCurrentTab('archives')}
+        />
+      )}
+
+      {/* Tab: Academic Archives */}
+      {currentTab === 'archives' && (
+        <AcademicArchiveViewer currentUser={currentUser} />
+      )}
+
+      {/* Tab: Former Students */}
+      {currentTab === 'former_students' && (
+        <FormerStudentsHub
+          currentUser={currentUser}
+          onOpenStudentArchive={() => setCurrentTab('archives')}
+        />
       )}
 
       {/* Tab: Curriculum & Subjects */}
@@ -938,62 +1196,59 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="space-y-6">
           {/* Metrics Overview */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-              <div className="flex items-center justify-between text-slate-500 mb-1">
-                <span className="text-xs font-bold uppercase tracking-wider">Total Invoiced</span>
-                <DollarSign className="w-4 h-4 text-slate-400" />
-              </div>
-              <p className="text-2xl font-black text-slate-900">
-                {currency}{invoices.reduce((a, b) => a + b.totalAmount, 0).toLocaleString()}
-              </p>
-              <span className="text-[11px] text-slate-500 mt-1 block">
-                {invoices.length} billing accounts across campuses
-              </span>
-            </div>
+            <FinancialMetricCard
+              id="admin-fin-invoiced"
+              title="Total Invoiced"
+              value={`${currency}${invoices.reduce((a, b) => a + b.totalAmount, 0).toLocaleString()}`}
+              icon={DollarSign}
+              variant="default"
+              isMono={true}
+              subtext={`${invoices.length} billing accounts across branches`}
+            />
 
-            <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-              <div className="flex items-center justify-between text-emerald-600 mb-1">
-                <span className="text-xs font-bold uppercase tracking-wider">Collected Revenue</span>
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              </div>
-              <p className="text-2xl font-black text-emerald-700">
-                {currency}{invoices.reduce((a, b) => a + b.paidAmount, 0).toLocaleString()}
-              </p>
-              <div className="flex items-center space-x-1 text-[11px] text-emerald-600 font-semibold mt-1">
-                <span>
-                  {invoices.reduce((a, b) => a + b.totalAmount, 0) > 0
-                    ? `${Math.round((invoices.reduce((a, b) => a + b.paidAmount, 0) / invoices.reduce((a, b) => a + b.totalAmount, 0)) * 100)}% term collection rate`
-                    : '0%'}
-                </span>
-              </div>
-            </div>
+            <FinancialMetricCard
+              id="admin-fin-collected"
+              title="Collected Revenue"
+              value={`${currency}${invoices.reduce((a, b) => a + b.paidAmount, 0).toLocaleString()}`}
+              icon={CheckCircle2}
+              variant="emerald"
+              isMono={true}
+              badge={{
+                text: invoices.reduce((a, b) => a + b.totalAmount, 0) > 0
+                  ? `${Math.round((invoices.reduce((a, b) => a + b.paidAmount, 0) / invoices.reduce((a, b) => a + b.totalAmount, 0)) * 100)}% Rate`
+                  : '0% Rate',
+                variant: 'emerald',
+              }}
+              secondaryBadge={{ text: 'Realized', variant: 'slate' }}
+              subtext="Term collection realized"
+            />
 
-            <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-              <div className="flex items-center justify-between text-amber-600 mb-1">
-                <span className="text-xs font-bold uppercase tracking-wider">Outstanding Balance</span>
-                <AlertCircle className="w-4 h-4 text-amber-500" />
-              </div>
-              <p className="text-2xl font-black text-amber-700">
-                {currency}{invoices.reduce((a, b) => a + b.balance, 0).toLocaleString()}
-              </p>
-              <span className="text-[11px] text-amber-600 font-semibold mt-1 block">
-                {invoices.filter(i => i.balance > 0).length} accounts pending full settlement
-              </span>
-            </div>
+            <FinancialMetricCard
+              id="admin-fin-outstanding"
+              title="Outstanding Balance"
+              value={`${currency}${invoices.reduce((a, b) => a + b.balance, 0).toLocaleString()}`}
+              icon={AlertCircle}
+              variant="amber"
+              isMono={true}
+              badge={{
+                text: `${invoices.filter(i => i.balance > 0).length} Pending`,
+                variant: 'amber',
+              }}
+              subtext="Pending student invoice settlements"
+            />
 
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-rose-50 to-amber-50 border border-rose-200 shadow-xs flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between text-rose-700 mb-1">
-                  <span className="text-xs font-bold uppercase tracking-wider">7+ Days Past Due</span>
-                  <BellRing className="w-4 h-4 text-rose-500" />
-                </div>
-                <p className="text-2xl font-black text-rose-700">
-                  {currency}{totalOverdue7Days.toLocaleString()}
-                </p>
-                <span className="text-[11px] text-rose-600 font-bold block mt-0.5">
-                  {overdue7DaysInvoices.length} Overdue Invoices
-                </span>
-              </div>
+            <FinancialMetricCard
+              id="admin-fin-overdue"
+              title="7+ Days Past Due"
+              value={`${currency}${totalOverdue7Days.toLocaleString()}`}
+              icon={BellRing}
+              variant="rose"
+              isMono={true}
+              badge={{
+                text: `${overdue7DaysInvoices.length} Overdue`,
+                variant: 'rose',
+              }}
+            >
               <button
                 disabled={overdue7DaysInvoices.length === 0}
                 onClick={() => setShowBulkRemindersModal(true)}
@@ -1006,22 +1261,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <Send className="w-3.5 h-3.5" />
                 <span>Send 7-Day Reminders</span>
               </button>
-            </div>
+            </FinancialMetricCard>
           </div>
 
           {/* Financial Analytics Visualization Grid: Bar Chart (Bungalow vs Ijegun) + Monthly Trend Line */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Campus Fee Comparison Bar Chart */}
+            {/* Branch Fee Comparison Bar Chart */}
             <div className="lg:col-span-7 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
               <div>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                   <div>
                     <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
                       <Building2 className="w-4 h-4 text-indigo-600" />
-                      <span>Campus Fee Distribution (Bungalow vs. Ijegun)</span>
+                      <span>Branch Fee Distribution (Bungalow vs. Ijegun)</span>
                     </h3>
                     <p className="text-xs text-slate-500">
-                      Total fees paid versus outstanding balances across Zitel Castle School campuses.
+                      Total fees paid versus outstanding balances across Zitel Castle School branches.
                     </p>
                   </div>
                   <div className="flex items-center space-x-3 text-[11px]">
@@ -1090,7 +1345,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Campus Comparison Summary Pills */}
+              {/* Branch Comparison Summary Pills */}
               <div className="grid grid-cols-2 gap-3 pt-4 mt-2 border-t border-slate-100">
                 {branchFinancialData.map(b => (
                   <div key={b.id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
@@ -1196,6 +1451,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <span className="text-xs text-slate-400 font-mono">{invoices.length} Invoices On Record</span>
               </div>
               <div className="flex items-center space-x-2">
+                {isBursar && (
+                  <button
+                    onClick={() => {
+                      setSelectedInvoiceForOfflineConfirm(null);
+                      setShowConfirmOfflinePaymentModal(true);
+                    }}
+                    className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer border border-emerald-400/30"
+                    title="Manually verify and confirm an offline fee payment without parent proof upload"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-white" />
+                    <span>+ Confirm Offline Payment</span>
+                  </button>
+                )}
                 <button
                   onClick={() => setShowBulkRemindersModal(true)}
                   className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 text-xs font-bold shadow-2xs transition-all cursor-pointer"
@@ -1221,7 +1489,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <tr>
                     <th className="py-3 px-4">Invoice #</th>
                     <th className="py-3 px-4">Student & Class</th>
-                    <th className="py-3 px-4">Campus Branch</th>
+                    <th className="py-3 px-4">Branch</th>
                     <th className="py-3 px-4">Term</th>
                     <th className="py-3 px-4">Total</th>
                     <th className="py-3 px-4">Paid</th>
@@ -1276,7 +1544,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </td>
                         <td className="py-3 px-4">
                           <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-[10px]">
-                            {branch?.name.includes('Ijegun') ? 'Ijegun Campus' : 'Bungalow Campus'}
+                            {branch?.name.includes('Ijegun') ? 'Ijegun Branch' : 'Bungalow Branch'}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-slate-600">{inv.term}</td>
@@ -1298,6 +1566,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </td>
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end space-x-1.5">
+                            {inv.balance > 0 && isBursar && (
+                              <button
+                                onClick={() => {
+                                  setSelectedInvoiceForOfflineConfirm(inv);
+                                  setShowConfirmOfflinePaymentModal(true);
+                                }}
+                                title="Manually confirm offline payment as Chief Bursar"
+                                className="px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-[10px] transition-colors flex items-center space-x-1 cursor-pointer"
+                              >
+                                <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                                <span>Offline Confirm</span>
+                              </button>
+                            )}
                             {inv.balance > 0 && (
                               <button
                                 onClick={() => {
@@ -1350,7 +1631,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   )}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Review submitted bank transfer receipts and payment proofs uploaded by parents before credit settlement.
+                  Review submitted bank transfer receipts, direct cash settlements, and Chief Bursar manual offline confirmations.
                 </p>
               </div>
             </div>
@@ -1362,6 +1643,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <th className="py-3 px-4">Student & Invoice</th>
                     <th className="py-3 px-4">Amount</th>
                     <th className="py-3 px-4">Payment Method / Bank</th>
+                    <th className="py-3 px-4">Channel / Origin</th>
                     <th className="py-3 px-4">Reference / Payer</th>
                     <th className="py-3 px-4">Proof File</th>
                     <th className="py-3 px-4">Status</th>
@@ -1382,6 +1664,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <div className="font-medium">{p.paymentMethod}</div>
                         {p.bankName && <div className="text-[10px] text-slate-400">{p.bankName}</div>}
                       </td>
+                      <td className="py-3 px-4">
+                        {p.isOfflineConfirmed || p.paymentChannel === 'OFFLINE_MANUAL_BURSAR' ? (
+                          <div className="space-y-0.5">
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center space-x-1">
+                              <ShieldCheck className="w-2.5 h-2.5" />
+                              <span>OFFLINE BURSAR</span>
+                            </span>
+                            {p.confirmedBy && (
+                              <div className="text-[10px] text-slate-500">
+                                By {p.confirmedBy}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+                            Parent Portal / Proof
+                          </span>
+                        )}
+                      </td>
                       <td className="py-3 px-4 text-slate-700">
                         <p className="font-mono text-[11px]">{p.transactionRef}</p>
                         <span className="text-[10px] text-slate-500">{p.accountHolderName || 'Guardian'}</span>
@@ -1396,6 +1697,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           >
                             <span>View Proof</span>
                           </a>
+                        ) : p.isOfflineConfirmed ? (
+                          <span className="text-[10px] text-emerald-700 font-medium">Bank Statement Verified</span>
                         ) : (
                           <span className="text-[10px] text-slate-400">Manual / POS</span>
                         )}
@@ -1463,7 +1766,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-800"
               >
                 <option value="ALL">All School (Teachers, Parents & Staff)</option>
-                <option value="TEACHERS">Faculty & Teachers Only</option>
+                <option value="TEACHERS">Teaching Staff & Teachers Only</option>
                 <option value="PARENTS">Parents & Guardians Only</option>
               </select>
             </div>
@@ -1512,6 +1815,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         />
       )}
 
+      {/* Tab: Parent Accounts & Duplicate Merge Hub */}
+      {currentTab === 'parent_duplicates' && (
+        <ParentDuplicateMergeHub currentUser={currentUser} />
+      )}
+
+      {/* Tab: Messaging & Gateway Integration Hub */}
+      {currentTab === 'messaging_config' && (
+        <MessagingConfigHub currentUser={currentUser} />
+      )}
+
+      {/* Tab: Fee Categories Catalogue */}
+      {currentTab === 'fee_categories' && (
+        <FeeCategoryManager currentUser={currentUser} />
+      )}
+
+      {/* Tab: Fee Discounts & Concessions */}
+      {currentTab === 'fee_discounts' && (
+        <FeeDiscountManager currentUser={currentUser} />
+      )}
+
+      {/* Tab: Fee Refunds & Credit Notes */}
+      {currentTab === 'fee_refunds' && (
+        <FeeRefundManager currentUser={currentUser} />
+      )}
+
+      {/* Tab: Executive Financial Report Dispatches */}
+      {currentTab === 'financial_reports' && (
+        <FinancialReportDispatcher currentUser={currentUser} />
+      )}
+
+      {/* Tab: Hidden Institutional Audit Log (Super Admins & Director only) */}
+      {currentTab === 'audit_logs' && (
+        <InstitutionalAuditLog currentUser={currentUser} />
+      )}
+
       {/* Modal: Onboard Teacher */}
       {showCreateTeacherModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -1519,7 +1857,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <GraduationCap className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-bold text-slate-900 text-base">Onboard Faculty Member</h3>
+                <h3 className="font-bold text-slate-900 text-base">Onboard Teaching Staff Member</h3>
               </div>
               <button
                 onClick={() => setShowCreateTeacherModal(false)}
@@ -1598,7 +1936,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   type="submit"
                   className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700"
                 >
-                  Onboard Faculty
+                  Onboard Staff Member
                 </button>
               </div>
             </form>
@@ -1633,7 +1971,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Class Cohort</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Class</label>
                   <select
                     value={timetableForm.classId}
                     onChange={e => setTimetableForm({ ...timetableForm, classId: e.target.value })}
@@ -2025,7 +2363,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   Found <strong className="font-bold">{overdue7DaysInvoices.length} overdue invoices</strong> past the 7-day grace threshold, totaling <strong className="font-bold">{currency}{totalOverdue7Days.toLocaleString()}</strong> in outstanding tuition and fees.
                 </p>
                 <p className="text-[11px] text-amber-800">
-                  Each parent will receive a detailed notification with their child's outstanding balance, invoice number, and campus-specific bank account details (Bungalow or Ijegun).
+                  Each parent will receive a detailed notification with their child's outstanding balance, invoice number, and branch-specific bank account details (Bungalow or Ijegun).
                 </p>
               </div>
 
@@ -2045,7 +2383,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             Parent: <span className="font-semibold text-slate-700">{inv.parentName}</span> • Inv: <span className="font-mono text-indigo-600">{inv.invoiceNumber}</span>
                           </p>
                           <span className="text-[10px] text-slate-400">
-                            Campus: {branch?.name.includes('Ijegun') ? 'Ijegun Campus' : 'Bungalow Campus'}
+                            Branch: {branch?.name.includes('Ijegun') ? 'Ijegun Branch' : 'Bungalow Branch'}
                           </span>
                         </div>
                         <div className="text-right">
@@ -2062,7 +2400,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="p-3.5 rounded-xl bg-slate-100 border border-slate-200 text-xs space-y-1">
                 <span className="text-[10px] font-bold text-slate-500 uppercase">Message Template Preview</span>
                 <p className="font-medium text-slate-700 italic">
-                  "Dear [Parent], this is an official reminder from Zitel Castle School regarding an outstanding balance of [₦Amount] for [Student] ([Class]). Please make payment to the campus bank account details and submit proof via your parent portal."
+                  "Dear [Parent], this is an official reminder from Zitel Castle School regarding an outstanding balance of [₦Amount] for [Student] ([Class]). Please make payment to the branch bank account details and submit proof via your parent portal."
                 </p>
               </div>
             </div>
@@ -2145,7 +2483,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               <p className="text-[11px] text-slate-500">
-                This will automatically send a high-priority push notification and internal system message to the parent with specific bank details for their registered campus.
+                This will automatically send a high-priority push notification and internal system message to the parent with specific bank details for their registered branch.
               </p>
             </div>
 
@@ -2168,6 +2506,67 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Credential Slip Modal for Authorized Onboarding / Resets */}
+      {activeCredentialSlip && (
+        <CredentialSlipModal
+          credentialSlip={activeCredentialSlip}
+          onClose={() => setActiveCredentialSlip(null)}
+        />
+      )}
+
+      {/* Teacher Status & Lifecycle Management Modal */}
+      {selectedTeacherForStatus && (
+        <TeacherStatusModal
+          teacher={selectedTeacherForStatus}
+          currentUser={currentUser}
+          onClose={() => setSelectedTeacherForStatus(null)}
+          onSuccess={() => {
+            setSelectedTeacherForStatus(null);
+          }}
+        />
+      )}
+
+      {/* Student Status & Lifecycle Management Modal */}
+      {selectedStudentForStatus && (
+        <StudentStatusModal
+          student={selectedStudentForStatus}
+          currentUser={currentUser}
+          onClose={() => setSelectedStudentForStatus(null)}
+          onSuccess={() => {
+            setSelectedStudentForStatus(null);
+          }}
+        />
+      )}
+
+      {/* Admin Student Enrollment with Parent Search / Create Modal */}
+      {showEnrollStudentModal && (
+        <AdminStudentEnrollmentModal
+          currentUser={currentUser}
+          onClose={() => setShowEnrollStudentModal(false)}
+          onSuccess={(student, slip) => {
+            setShowEnrollStudentModal(false);
+            if (slip) {
+              setActiveCredentialSlip(slip);
+            }
+          }}
+        />
+      )}
+
+      {/* Chief Bursar Offline Payment Manual Confirmation Modal */}
+      {showConfirmOfflinePaymentModal && (
+        <ConfirmOfflinePaymentModal
+          currentUser={currentUser}
+          initialInvoice={selectedInvoiceForOfflineConfirm}
+          onClose={() => {
+            setShowConfirmOfflinePaymentModal(false);
+            setSelectedInvoiceForOfflineConfirm(null);
+          }}
+          onSuccess={() => {
+            // DB subscriptions automatically trigger state refreshes
+          }}
+        />
       )}
     </div>
   );

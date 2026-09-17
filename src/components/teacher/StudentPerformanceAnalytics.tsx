@@ -144,7 +144,7 @@ export const StudentPerformanceAnalytics: React.FC<StudentPerformanceAnalyticsPr
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Class Cohort Overview
+              Class Overview
             </button>
             <button
               onClick={() => setAnalyticsView('STUDENT')}
@@ -162,7 +162,7 @@ export const StudentPerformanceAnalytics: React.FC<StudentPerformanceAnalyticsPr
             <select
               value={selectedStudentId}
               onChange={e => setSelectedStudentId(e.target.value)}
-              className="py-1.5 px-3 text-xs border border-slate-300 rounded-xl bg-white font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 shadow-xs"
+              className="w-full sm:w-auto max-w-[240px] truncate py-1.5 px-3 text-xs border border-slate-300 rounded-xl bg-white font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 shadow-xs"
             >
               {students.map(s => (
                 <option key={s.id} value={s.id}>
@@ -176,57 +176,63 @@ export const StudentPerformanceAnalytics: React.FC<StudentPerformanceAnalyticsPr
 
       {/* KPI Performance Cards Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              {analyticsView === 'CLASS' ? 'Class Mean Average' : `${selectedStudent?.fullName || 'Student'} Avg`}
-            </span>
-            <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
-              <Award className="w-4 h-4" />
-            </span>
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                {analyticsView === 'CLASS' ? 'Class Mean Average' : `${selectedStudent?.fullName || 'Student'} Avg`}
+              </span>
+              <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
+                <Award className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2 mt-2 flex-wrap">
+              <p className="text-2xl font-black text-slate-900">
+                {analyticsView === 'CLASS' ? `${classAvgOverall}%` : '89.2%'}
+              </p>
+              <span className="flex items-center text-xs font-bold text-emerald-600">
+                <ArrowUpRight className="w-3.5 h-3.5" />
+                +{growthDelta}%
+              </span>
+            </div>
           </div>
-          <div className="flex items-baseline gap-2 mt-2">
-            <p className="text-2xl font-black text-slate-900">
-              {analyticsView === 'CLASS' ? `${classAvgOverall}%` : '89.2%'}
-            </p>
-            <span className="flex items-center text-xs font-bold text-emerald-600">
-              <ArrowUpRight className="w-3.5 h-3.5" />
-              +{growthDelta}%
-            </span>
-          </div>
-          <span className="text-[10px] text-slate-400 font-medium">vs. previous term baseline</span>
+          <span className="text-[10px] text-slate-400 font-medium mt-1 block">vs. previous term baseline</span>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Attendance Index
-            </span>
-            <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
-              <CalendarCheck className="w-4 h-4" />
-            </span>
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Attendance Index
+              </span>
+              <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
+                <CalendarCheck className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2 mt-2 flex-wrap">
+              <p className="text-2xl font-black text-slate-900">{attendanceAvg}%</p>
+              <span className="text-xs font-bold text-emerald-600">+1.8%</span>
+            </div>
           </div>
-          <div className="flex items-baseline gap-2 mt-2">
-            <p className="text-2xl font-black text-slate-900">{attendanceAvg}%</p>
-            <span className="text-xs font-bold text-emerald-600">+1.8%</span>
-          </div>
-          <span className="text-[10px] text-emerald-600 font-medium">Exceeds 95% target threshold</span>
+          <span className="text-[10px] text-emerald-600 font-medium mt-1 block">Exceeds 95% target threshold</span>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Assignment Turn-in
-            </span>
-            <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
-              <ClipboardCheck className="w-4 h-4" />
-            </span>
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Assignment Turn-in
+              </span>
+              <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
+                <ClipboardCheck className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2 mt-2 flex-wrap">
+              <p className="text-2xl font-black text-slate-900">97.0%</p>
+              <span className="text-xs font-bold text-blue-600">On Track</span>
+            </div>
           </div>
-          <div className="flex items-baseline gap-2 mt-2">
-            <p className="text-2xl font-black text-slate-900">97.0%</p>
-            <span className="text-xs font-bold text-blue-600">On Track</span>
-          </div>
-          <span className="text-[10px] text-slate-400 font-medium">28 of 29 completed on time</span>
+          <span className="text-[10px] text-slate-400 font-medium mt-1 block">28 of 29 completed on time</span>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">

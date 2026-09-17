@@ -11,10 +11,14 @@ import {
   MessageSquare,
   Trophy,
   Flame,
-  Check
+  Check,
+  ChevronRight
 } from 'lucide-react';
 import { User, Student, Assignment } from '../../types';
 import { db } from '../../services/db';
+import { DailyCalendarIntelligenceWidget } from '../common/DailyCalendarIntelligenceWidget';
+import { SchoolCalendarManager } from '../calendar/SchoolCalendarManager';
+import { Timetable } from '../common/Timetable';
 
 interface StudentDashboardProps {
   currentUser: User;
@@ -91,6 +95,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 Student Learning Zone
               </span>
               <span className="text-xs text-sky-100 font-bold">• {studentProfile.className}</span>
+              <span className="font-mono text-[11px] font-bold bg-white/20 text-white px-2 py-0.5 rounded-full border border-white/30">
+                {studentProfile.schoolId || currentUser.schoolId || studentProfile.studentId}
+              </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-black mt-0.5">
               Hi, {studentProfile.fullName}! ⭐
@@ -113,10 +120,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         </div>
       </div>
 
+      {/* Daily Calendar Intelligence: Active Session, Term Countdown & Upcoming Events */}
+      <DailyCalendarIntelligenceWidget currentUser={currentUser} />
+
       {/* Tabs */}
       <div className="flex items-center space-x-2 border-b border-slate-200 pb-2 overflow-x-auto">
         {[
           { id: 'overview', label: 'My Learning Space', icon: Smile },
+          { id: 'calendar', label: 'School Calendar', icon: Calendar },
           { id: 'my_schedule', label: 'Today\'s Timetable', icon: Calendar },
           { id: 'my_homework', label: 'My Homework Tasks', icon: ClipboardList },
           { id: 'my_grades', label: 'My Badges & Stars', icon: Award },
@@ -140,6 +151,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           );
         })}
       </div>
+
+      {/* Tab: Calendar */}
+      {currentTab === 'calendar' && (
+        <SchoolCalendarManager currentUser={currentUser} />
+      )}
 
       {/* Tab 1: Overview */}
       {currentTab === 'overview' && (
@@ -197,21 +213,40 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           {/* Today's Schedule Card */}
           <div className="space-y-6">
             <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
-                <Calendar className="w-4 h-4 text-purple-600" />
-                <span>Today's Periods</span>
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                  <Calendar className="w-4 h-4 text-purple-600" />
+                  <span>Today's Periods</span>
+                </h3>
+                <button
+                  onClick={() => setCurrentTab('my_schedule')}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                >
+                  View All →
+                </button>
+              </div>
               <div className="space-y-2 text-xs">
-                {timetable.slice(0, 3).map(slot => (
-                  <div key={slot.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
+                {timetable.slice(0, 4).map(slot => (
+                  <div key={slot.id} className="p-3 rounded-xl bg-slate-50 hover:bg-indigo-50/50 border border-slate-100 transition-all space-y-1">
                     <div className="flex items-center justify-between font-bold text-slate-800">
                       <span>{slot.subjectName}</span>
-                      <span className="font-mono text-indigo-600">{slot.startTime}</span>
+                      <span className="font-mono text-indigo-600">{slot.startTime} – {slot.endTime}</span>
                     </div>
-                    <p className="text-[11px] text-slate-500">{slot.room || slot.roomNumber || 'Room 103'} • {slot.teacherName}</p>
+                    <div className="flex items-center justify-between text-[11px] text-slate-500">
+                      <span>{slot.room || slot.roomNumber || 'Room 201'}</span>
+                      <span className="font-medium text-slate-600">{slot.teacherName}</span>
+                    </div>
                   </div>
                 ))}
               </div>
+              <button
+                onClick={() => setCurrentTab('my_schedule')}
+                className="w-full py-2 px-3 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs flex items-center justify-center space-x-1.5 transition-all"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Open Interactive Timetable</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
             </div>
 
             {/* Fun Practice Quiz Prompt */}
@@ -306,6 +341,17 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             </div>
           )}
         </div>
+      )}
+
+      {/* Tab: Interactive Timetable Schedule */}
+      {currentTab === 'my_schedule' && (
+        <Timetable
+          currentUser={currentUser}
+          classId={studentProfile.classId}
+          className={studentProfile.className}
+          viewMode="student"
+          onNavigateToTab={(tab) => setCurrentTab(tab)}
+        />
       )}
     </div>
   );

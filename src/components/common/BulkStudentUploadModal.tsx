@@ -17,6 +17,8 @@ import { User, Student, ClassRoom } from '../../types';
 import { db } from '../../services/db';
 import { downloadCSV } from '../../utils/exportCsv';
 
+import { cleanClassName } from '../../utils/classUtils';
+
 interface BulkStudentUploadModalProps {
   currentUser: User;
   onClose: () => void;
@@ -38,16 +40,16 @@ interface ParsedStudentRow {
 }
 
 const SAMPLE_CSV_TEMPLATE = `Full Name,Gender,Class Name,Date of Birth,House,Blood Group,Emergency Contact Name,Emergency Contact Phone
-"Liam Alexander Carter",Male,"Primary 3A",2016-05-14,"Blue House","O+","Emma Carter","+1 555-019-2831"
-"Sophia Isabella Martinez",Female,"Primary 3A",2016-08-22,"Gold House","A+","Carlos Martinez","+1 555-019-4829"
-"Noah Elijah Robinson",Male,"Primary 4A",2015-11-03,"Red House","B+","Rachel Robinson","+1 555-019-8812"
-"Ava Charlotte Zhang",Female,"Primary 4A",2015-03-19,"Green House","AB+","Wei Zhang","+1 555-019-9941"`;
+"Liam Alexander Carter",Male,"Basic 3",2016-05-14,"Blue House","O+","Emma Carter","+1 555-019-2831"
+"Sophia Isabella Martinez",Female,"Basic 3",2016-08-22,"Gold House","A+","Carlos Martinez","+1 555-019-4829"
+"Noah Elijah Robinson",Male,"Basic 4",2015-11-03,"Red House","B+","Rachel Robinson","+1 555-019-8812"
+"Ava Charlotte Zhang",Female,"Basic 4",2015-03-19,"Green House","AB+","Wei Zhang","+1 555-019-9941"`;
 
 const SAMPLE_JSON_TEMPLATE = [
   {
     fullName: "Liam Alexander Carter",
     gender: "Male",
-    className: "Primary 3A",
+    className: "Basic 3",
     dob: "2016-05-14",
     house: "Blue House",
     bloodGroup: "O+",
@@ -60,7 +62,7 @@ const SAMPLE_JSON_TEMPLATE = [
   {
     fullName: "Sophia Isabella Martinez",
     gender: "Female",
-    className: "Primary 3A",
+    className: "Basic 3",
     dob: "2016-08-22",
     house: "Gold House",
     bloodGroup: "A+",
@@ -130,14 +132,18 @@ export const BulkStudentUploadModal: React.FC<BulkStudentUploadModalProps> = ({
 
       const fullName = values[0] || '';
       const genderRaw = values[1] || 'Male';
-      const classNameRaw = values[2] || 'Primary 3A';
+      const classNameRaw = values[2] || 'Basic 3';
       const dob = values[3] || '2016-01-01';
       const house = values[4] || 'Blue House';
       const bloodGroup = values[5] || 'O+';
       const contactName = values[6] || 'Parent / Guardian';
       const contactPhone = values[7] || '';
 
-      const matchedClass = classMapByName.get(classNameRaw.toLowerCase().trim()) || classes[0];
+      const cleanedInputName = cleanClassName(classNameRaw).toLowerCase().trim();
+      const matchedClass =
+        classMapByName.get(classNameRaw.toLowerCase().trim()) ||
+        classes.find(c => cleanClassName(c.name).toLowerCase() === cleanedInputName || c.levelName?.toLowerCase() === cleanedInputName) ||
+        classes[0];
 
       let isValid = true;
       let validationError = '';
@@ -157,7 +163,7 @@ export const BulkStudentUploadModal: React.FC<BulkStudentUploadModalProps> = ({
         fullName,
         gender,
         className: matchedClass?.name || classNameRaw,
-        classId: matchedClass?.id || classes[0]?.id || 'cls_p3a',
+        classId: matchedClass?.id || classes[0]?.id || 'cls_basic3a_bgl',
         dob,
         house,
         bloodGroup,
@@ -184,12 +190,14 @@ export const BulkStudentUploadModal: React.FC<BulkStudentUploadModalProps> = ({
 
       return data.map((item: any, i: number) => {
         const fullName = item.fullName || item.name || '';
-        const classNameRaw = item.className || item.class || 'Primary 3A';
+        const classNameRaw = item.className || item.class || 'Basic 3';
         const classIdRaw = item.classId;
 
+        const cleanedInputName = cleanClassName(classNameRaw).toLowerCase().trim();
         const matchedClass =
           (classIdRaw ? classMapById.get(classIdRaw) : null) ||
           classMapByName.get(classNameRaw.toLowerCase().trim()) ||
+          classes.find(c => cleanClassName(c.name).toLowerCase() === cleanedInputName || c.levelName?.toLowerCase() === cleanedInputName) ||
           classes[0];
 
         let isValid = true;

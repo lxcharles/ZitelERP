@@ -21,7 +21,8 @@ import {
   Layers,
   ArrowUpRight,
   ShieldCheck,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Plus
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -37,8 +38,11 @@ import {
   Line
 } from 'recharts';
 import { User, Invoice, FeePayment, Branch, InvoiceFeeItem } from '../../types';
-import { db } from '../../services/db';
+import { db, isChiefBursarUser } from '../../services/db';
 import { exportFinancialsToCSV } from '../../utils/exportCsv';
+import { FinancialMetricCard } from '../common/FinancialMetricCard';
+import { ConfirmOfflinePaymentModal } from './ConfirmOfflinePaymentModal';
+import { canSwitchBranches } from '../../utils/roles';
 
 interface FinancialDashboardTabProps {
   currentUser: User;
@@ -54,18 +58,20 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
   const profile = db.getSchoolProfile();
   const currency = profile.currencySymbol || '₦';
   const allBranches = db.getBranches();
+  const isChiefBursar = isChiefBursarUser(currentUser);
 
-  // Role-Based Access Control: Branch admin is scoped
-  const isBranchAdmin =
-    (currentUser.role === 'ADMIN' || (currentUser.role as string) === 'BRANCH_ADMIN') &&
-    Boolean(currentUser.branchId) &&
-    currentUser.scope !== 'ALL_SCHOOL' &&
-    currentUser.scope !== 'FINANCE_ONLY';
+  // Modal State for Manual Offline Payment Confirmation
+  const [showOfflineModal, setShowOfflineModal] = useState(false);
+  const [selectedInvoiceForOffline, setSelectedInvoiceForOffline] = useState<Invoice | null>(null);
 
-  const userAssignedBranch = allBranches.find(b => b.id === currentUser.branchId);
+  // Role-Based Access Control: Only Super Admin and Director can switch branches
+  const canSwitch = canSwitchBranches(currentUser);
+  const isBranchScoped = !canSwitch;
+
+  const userAssignedBranch = allBranches.find(b => b.id === currentUser.branchId) || allBranches[0];
 
   // Available branches for current user
-  const accessibleBranches = isBranchAdmin && userAssignedBranch
+  const accessibleBranches = isBranchScoped && userAssignedBranch
     ? [userAssignedBranch]
     : allBranches;
 
@@ -73,7 +79,7 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
   const [selectedTerm, setSelectedTerm] = useState<string>('First Term');
   const [selectedAcademicYear, setSelectedAcademicYear] = useState<string>('2025/2026');
   const [selectedBranchId, setSelectedBranchId] = useState<string>(
-    isBranchAdmin && currentUser.branchId ? currentUser.branchId : 'ALL'
+    isBranchScoped && currentUser.branchId ? currentUser.branchId : 'ALL'
   );
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE'>('ALL');
@@ -129,9 +135,9 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
       const pending = Math.max(0, billed - collected);
       const rate = billed > 0 ? Math.round((collected / billed) * 100) : 0;
       const cleanName = branch.name.includes('Bungalow')
-        ? 'Bungalow Campus'
+        ? 'Bungalow Branch'
         : branch.name.includes('Ijegun')
-        ? 'Ijegun Campus'
+        ? 'Ijegun Branch'
         : branch.name;
 
       const shortName = branch.name.includes('Bungalow')
@@ -229,7 +235,7 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
               <DollarSign className="w-3.5 h-3.5" />
               <span>Multi-Branch Financial Analytics</span>
             </span>
-            {isBranchAdmin && userAssignedBranch && (
+            {isBranchScoped && userAssignedBranch && (
               <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30 flex items-center space-x-1">
                 <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
                 <span>Restricted to: {userAssignedBranch.name}</span>
@@ -244,12 +250,27 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
             Institutional Financial Dashboard
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-            Real-time analytics for collected vs pending fees, multi-campus billing ledgers, partial payment breakdowns, and automated parental settlement tracking.
+            Real-time analytics for collected vs pending fees, multi-branch billing ledgers, partial payment breakdowns, and automated parental settlement tracking.
           </p>
         </div>
 
         {/* Global Quick Action Buttons */}
         <div className="flex flex-wrap items-center gap-3">
+          {isChiefBursar && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedInvoiceForOffline(null);
+                setShowOfflineModal(true);
+              }}
+              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition-all shadow-md shadow-emerald-900/50 flex items-center space-x-2 cursor-pointer border border-emerald-400/30"
+              title="Manually verify and confirm an offline fee payment"
+            >
+              <ShieldCheck className="w-4 h-4 text-white" />
+              <span>+ Confirm Offline Payment</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => exportFinancialsToCSV(currentTermInvoices)}
@@ -303,23 +324,23 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
             </select>
           </div>
 
-          {/* Campus Branch Filter */}
+          {/* Branch Filter */}
           <div className="flex items-center space-x-2">
-            <span className="text-xs font-bold text-slate-600">Campus Branch:</span>
+            <span className="text-xs font-bold text-slate-600">Branch:</span>
             <select
               value={selectedBranchId}
-              disabled={isBranchAdmin}
+              disabled={isBranchScoped}
               onChange={e => setSelectedBranchId(e.target.value)}
               className={`px-3 py-1.5 rounded-xl border text-xs font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-hidden ${
-                isBranchAdmin
+                isBranchScoped
                   ? 'bg-slate-100 border-slate-300 text-slate-600 cursor-not-allowed'
                   : 'bg-slate-50 border-slate-200 text-slate-800'
               }`}
             >
-              {!isBranchAdmin && <option value="ALL">All Campus Branches (All-School)</option>}
+              {!isBranchScoped && <option value="ALL">All Branches (All-School)</option>}
               {accessibleBranches.map(b => (
                 <option key={b.id} value={b.id}>
-                  {b.name.includes('Bungalow') ? 'Bungalow Campus' : b.name.includes('Ijegun') ? 'Ijegun Campus' : b.name}
+                  {b.name.includes('Bungalow') ? 'Bungalow Branch' : b.name.includes('Ijegun') ? 'Ijegun Branch' : b.name}
                 </option>
               ))}
             </select>
@@ -336,101 +357,54 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Billed */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Billed Fees</span>
-            <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
-              <DollarSign className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <div className="text-2xl font-black text-slate-900 font-mono">
-              {currency}{totalBilled.toLocaleString()}
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1">
-              Across {currentTermInvoices.length} student ledger accounts
-            </p>
-          </div>
-        </div>
+        <FinancialMetricCard
+          id="fin-kpi-billed"
+          title="Total Billed Fees"
+          value={`${currency}${totalBilled.toLocaleString()}`}
+          icon={DollarSign}
+          variant="indigo"
+          isMono={true}
+          subtext={`Across ${currentTermInvoices.length} student ledger accounts`}
+        />
 
         {/* Total Collected */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Total Fees Collected</span>
-            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
-              <TrendingUp className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <div className="text-2xl font-black text-emerald-600 font-mono">
-              {currency}{totalCollected.toLocaleString()}
-            </div>
-            <div className="flex items-center space-x-1.5 mt-1">
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800">
-                {collectionRate}% Realized
-              </span>
-              <span className="text-[11px] text-slate-400">Target: 95%</span>
-            </div>
-          </div>
-        </div>
+        <FinancialMetricCard
+          id="fin-kpi-collected"
+          title="Total Fees Collected"
+          value={`${currency}${totalCollected.toLocaleString()}`}
+          icon={TrendingUp}
+          variant="emerald"
+          isMono={true}
+          badge={{ text: `${collectionRate}% Realized`, variant: 'emerald' }}
+          secondaryBadge={{ text: 'Target: 95%', variant: 'slate' }}
+          subtext="Term fee revenue realized"
+        />
 
         {/* Total Pending / Outstanding */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">Total Pending Fees</span>
-            <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
-              <Clock className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <div className="text-2xl font-black text-amber-600 font-mono">
-              {currency}{totalPending.toLocaleString()}
-            </div>
-            <div className="flex items-center space-x-1.5 mt-1">
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
-                {100 - collectionRate}% Outstanding
-              </span>
-              {countOverdue > 0 && (
-                <span className="text-[10px] font-bold text-rose-600">
-                  ({countOverdue} Overdue)
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
+        <FinancialMetricCard
+          id="fin-kpi-pending"
+          title="Total Pending Fees"
+          value={`${currency}${totalPending.toLocaleString()}`}
+          icon={Clock}
+          variant="amber"
+          isMono={true}
+          badge={{ text: `${100 - collectionRate}% Outstanding`, variant: 'amber' }}
+          secondaryBadge={countOverdue > 0 ? { text: `${countOverdue} Overdue`, variant: 'rose' } : undefined}
+          subtext="Pending payment reconciliations"
+        />
 
         {/* Invoices Status Breakdown */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Settlement Ratio</span>
-            <div className="p-2 rounded-xl bg-slate-100 text-slate-600">
-              <Layers className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="space-y-1.5 pt-1">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-emerald-700 font-bold flex items-center space-x-1">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Fully Paid:</span>
-              </span>
-              <span className="font-mono font-bold text-slate-900">{countPaid}</span>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-amber-700 font-bold flex items-center space-x-1">
-                <Clock className="w-3.5 h-3.5" />
-                <span>Partial Payments:</span>
-              </span>
-              <span className="font-mono font-bold text-slate-900">{countPartial}</span>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-rose-700 font-bold flex items-center space-x-1">
-                <AlertCircle className="w-3.5 h-3.5" />
-                <span>Pending / Unpaid:</span>
-              </span>
-              <span className="font-mono font-bold text-slate-900">{countPending}</span>
-            </div>
-          </div>
-        </div>
+        <FinancialMetricCard
+          id="fin-kpi-settlement"
+          title="Settlement Ratio"
+          value={`${countPaid}/${currentTermInvoices.length}`}
+          icon={Layers}
+          variant="slate"
+          isMono={true}
+          badge={{ text: `${Math.round((countPaid / (currentTermInvoices.length || 1)) * 100)}% Settled`, variant: 'emerald' }}
+          secondaryBadge={countPartial > 0 ? { text: `${countPartial} Partial`, variant: 'amber' } : undefined}
+          subtext={`${countPending} accounts pending full settlement`}
+        />
       </div>
 
       {/* SECTION 1: PRIMARY RECHARTS SUMMARY CHART */}
@@ -443,10 +417,10 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
               <span>Multi-Branch Comparison</span>
             </div>
             <h2 className="text-lg font-black text-slate-900 font-display">
-              Collected vs. Pending Fees by Campus Branch ({selectedTerm})
+              Collected vs. Pending Fees by Branch ({selectedTerm})
             </h2>
             <p className="text-xs text-slate-500">
-              Comparative visualization of revenue collection performance and pending outstanding balances across all school campuses.
+              Comparative visualization of revenue collection performance and pending outstanding balances across all school branches.
             </p>
           </div>
 
@@ -762,7 +736,7 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
               <tr>
                 <th className="py-3 px-4">Invoice #</th>
                 <th className="py-3 px-4">Student & Class</th>
-                <th className="py-3 px-4">Campus Branch</th>
+                <th className="py-3 px-4">Branch</th>
                 <th className="py-3 px-4">Total Billed</th>
                 <th className="py-3 px-4">Paid</th>
                 <th className="py-3 px-4">Remaining Balance</th>
@@ -779,8 +753,8 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
 
                 const branch = allBranches.find(b => b.id === inv.branchId);
                 const branchLabel = branch?.name.includes('Ijegun')
-                  ? 'Ijegun Campus'
-                  : 'Bungalow Campus';
+                  ? 'Ijegun Branch'
+                  : 'Bungalow Branch';
 
                 return (
                   <React.Fragment key={inv.id}>
@@ -806,16 +780,16 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
                       </td>
 
                       <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
-                        {currency}{inv.totalAmount.toLocaleString()}
+                        {currency}{(inv.totalAmount || 0).toLocaleString()}
                       </td>
 
                       <td className="py-3.5 px-4 font-mono font-bold text-emerald-600">
-                        {currency}{inv.paidAmount.toLocaleString()}
+                        {currency}{(inv.paidAmount || 0).toLocaleString()}
                       </td>
 
                       <td className="py-3.5 px-4 font-mono font-black text-slate-900">
-                        <span className={inv.balance > 0 ? 'text-amber-700' : 'text-slate-400'}>
-                          {currency}{inv.balance.toLocaleString()}
+                        <span className={(inv.balance || 0) > 0 ? 'text-amber-700' : 'text-slate-400'}>
+                          {currency}{(inv.balance || 0).toLocaleString()}
                         </span>
                       </td>
 
@@ -846,6 +820,21 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
                             {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                           </button>
 
+                          {inv.balance > 0 && isChiefBursar && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedInvoiceForOffline(inv);
+                                setShowOfflineModal(true);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all flex items-center space-x-1 shadow-xs cursor-pointer"
+                              title="Manually verify & confirm offline payment for this student"
+                            >
+                              <ShieldCheck className="w-3.5 h-3.5" />
+                              <span>Offline Confirm</span>
+                            </button>
+                          )}
+
                           {inv.balance > 0 && onRecordPayment && (
                             <button
                               type="button"
@@ -871,7 +860,7 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
                                 <span>Itemized Fee Schedule for {inv.studentName} ({inv.invoiceNumber})</span>
                               </h4>
                               <span className="text-xs text-slate-500 font-mono">
-                                Total Paid: <strong className="text-emerald-600">{currency}{inv.paidAmount.toLocaleString()}</strong> of {currency}{inv.totalAmount.toLocaleString()}
+                                Total Paid: <strong className="text-emerald-600">{currency}{(inv.paidAmount || 0).toLocaleString()}</strong> of {currency}{(inv.totalAmount || 0).toLocaleString()}
                               </span>
                             </div>
 
@@ -943,6 +932,21 @@ export const FinancialDashboardTab: React.FC<FinancialDashboardTabProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Manual Offline Payment Confirmation Modal */}
+      {showOfflineModal && (
+        <ConfirmOfflinePaymentModal
+          currentUser={currentUser}
+          initialInvoice={selectedInvoiceForOffline}
+          onClose={() => {
+            setShowOfflineModal(false);
+            setSelectedInvoiceForOffline(null);
+          }}
+          onSuccess={() => {
+            // State automatically updates via db.subscribe
+          }}
+        />
+      )}
     </div>
   );
 };

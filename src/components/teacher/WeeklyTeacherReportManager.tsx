@@ -472,7 +472,7 @@ export const WeeklyTeacherReportManager: React.FC<WeeklyTeacherReportManagerProp
                   ZITEL CASTLE SCHOOL
                 </h1>
                 <p className="text-xs font-bold text-indigo-700 tracking-wider uppercase">
-                  {activeReportForView.branchName || 'BUNGALOW CAMPUS'} • WEEKLY FORM TEACHER RECORD
+                  {activeReportForView.branchName || 'BUNGALOW BRANCH'} • WEEKLY FORM TEACHER RECORD
                 </p>
                 <p className="text-[11px] text-slate-500 font-medium mt-0.5">
                   WEEK {activeReportForView.weekNumber} • {activeReportForView.term.toUpperCase()} ({activeReportForView.academicYear})
@@ -482,7 +482,7 @@ export const WeeklyTeacherReportManager: React.FC<WeeklyTeacherReportManagerProp
               {/* Class & Submission Info Header */}
               <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
                 <div>
-                  <span className="text-slate-400 font-medium block text-[10px] uppercase">Class Cohort</span>
+                  <span className="text-slate-400 font-medium block text-[10px] uppercase">Class</span>
                   <strong className="text-slate-900 font-bold text-sm">{activeReportForView.className}</strong>
                 </div>
 
@@ -761,7 +761,7 @@ export const WeeklyTeacherReportManager: React.FC<WeeklyTeacherReportManagerProp
                     onChange={e => setFormRecipientRole(e.target.value as any)}
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl font-medium"
                   >
-                    <option value="BRANCH_ADMIN">Branch Administrator (Campus Lead)</option>
+                    <option value="BRANCH_ADMIN">Branch Administrator (Branch Lead)</option>
                     <option value="SCHOOL_ADMIN">School Head / Academic Director</option>
                     <option value="SUPER_ADMIN">Executive Board / Super Admin</option>
                   </select>
@@ -866,7 +866,7 @@ export const WeeklyTeacherReportManager: React.FC<WeeklyTeacherReportManagerProp
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-amber-800 mb-1">
-                    Student Concerns / Pastoral Needs
+                    Student Concerns / Behavioral Concerns
                   </label>
                   <textarea
                     rows={2}

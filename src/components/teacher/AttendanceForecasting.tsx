@@ -237,7 +237,7 @@ export const AttendanceForecasting: React.FC<AttendanceForecastingProps> = ({
         <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Chronic Risk Students</p>
-            <div className="flex items-baseline gap-2 mt-1">
+            <div className="flex items-baseline gap-2 mt-1 flex-wrap">
               <span className="text-2xl font-bold text-red-600">{classSummary.chronicAbsenteeismRiskCount}</span>
               <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
                 &lt; 85% Projected
@@ -245,7 +245,7 @@ export const AttendanceForecasting: React.FC<AttendanceForecastingProps> = ({
             </div>
             <p className="text-xs text-slate-500 mt-1">Require immediate intervention</p>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center text-red-600">
+          <div className="w-12 h-12 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center text-red-600 shrink-0">
             <AlertTriangle className="w-6 h-6" />
           </div>
         </div>
@@ -253,7 +253,7 @@ export const AttendanceForecasting: React.FC<AttendanceForecastingProps> = ({
         <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Moderate Warning</p>
-            <div className="flex items-baseline gap-2 mt-1">
+            <div className="flex items-baseline gap-2 mt-1 flex-wrap">
               <span className="text-2xl font-bold text-amber-600">{classSummary.moderateRiskCount}</span>
               <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
                 85% - 92% Range
@@ -261,7 +261,7 @@ export const AttendanceForecasting: React.FC<AttendanceForecastingProps> = ({
             </div>
             <p className="text-xs text-slate-500 mt-1">Frequent tardiness / Friday slippage</p>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
+          <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shrink-0">
             <Clock className="w-6 h-6" />
           </div>
         </div>
@@ -269,7 +269,7 @@ export const AttendanceForecasting: React.FC<AttendanceForecastingProps> = ({
         <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Healthy & Regular</p>
-            <div className="flex items-baseline gap-2 mt-1">
+            <div className="flex items-baseline gap-2 mt-1 flex-wrap">
               <span className="text-2xl font-bold text-emerald-600">{classSummary.healthyAttendanceCount}</span>
               <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
                 &ge; 95% Rate
@@ -277,7 +277,7 @@ export const AttendanceForecasting: React.FC<AttendanceForecastingProps> = ({
             </div>
             <p className="text-xs text-slate-500 mt-1">Consistent daily attendance</p>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
             <UserCheck className="w-6 h-6" />
           </div>
         </div>
@@ -285,7 +285,7 @@ export const AttendanceForecasting: React.FC<AttendanceForecastingProps> = ({
         <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Class Roster</p>
-            <div className="flex items-baseline gap-2 mt-1">
+            <div className="flex items-baseline gap-2 mt-1 flex-wrap">
               <span className="text-2xl font-bold text-slate-900">{classSummary.totalStudents}</span>
               <span className="text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
                 Primary 3A
@@ -293,7 +293,7 @@ export const AttendanceForecasting: React.FC<AttendanceForecastingProps> = ({
             </div>
             <p className="text-xs text-slate-500 mt-1">20 historical school days tracked</p>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+          <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
             <Calendar className="w-6 h-6" />
           </div>
         </div>

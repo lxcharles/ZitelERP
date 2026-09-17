@@ -41,11 +41,11 @@ export interface StudentProgressionProfile {
 }
 
 export const STUDENT_PROGRESSION_DATA: Record<string, StudentProgressionProfile> = {
-  // Leo Rodriguez (Primary 3A) - Continuous Growth from 2024 to 2026
+  // Leo Rodriguez (Basic 3) - Continuous Growth from 2024 to 2026
   stu_leo_01: {
     studentId: 'stu_leo_01',
     studentName: 'Leo Rodriguez',
-    className: 'Primary 3A',
+    className: 'Basic 3',
     enrolledYear: '2024',
     growthVelocity: {
       annualScoreDelta: 10.2,
@@ -168,7 +168,7 @@ export const STUDENT_PROGRESSION_DATA: Record<string, StudentProgressionProfile>
           { subjectName: 'Creative Arts', score: 93, cohortAvg: 86, gradeLetter: 'A+', effort: 'Outstanding' },
           { subjectName: 'Computer Literacy', score: 92, cohortAvg: 80, gradeLetter: 'A+', effort: 'Outstanding' },
         ],
-        teacherRemarks: 'Transitioned smoothly into Primary 3A. Demonstrates proactive peer mentoring.',
+        teacherRemarks: 'Transitioned smoothly into Basic 3. Demonstrates proactive peer mentoring.',
         coreCompetencies: [
           { domain: 'Mathematical Logic', score: 91, cohortAvg: 80 },
           { domain: 'Reading & Literacy', score: 87, cohortAvg: 82 },
@@ -243,11 +243,11 @@ export const STUDENT_PROGRESSION_DATA: Record<string, StudentProgressionProfile>
     ],
   },
 
-  // Maya Rodriguez (Primary 1A) - Early Childhood Foundation Growth
+  // Maya Rodriguez (Basic 1) - Early Childhood Foundation Growth
   stu_maya_02: {
     studentId: 'stu_maya_02',
     studentName: 'Maya Rodriguez',
-    className: 'Primary 1A',
+    className: 'Basic 1',
     enrolledYear: '2025',
     growthVelocity: {
       annualScoreDelta: 8.5,
@@ -275,7 +275,7 @@ export const STUDENT_PROGRESSION_DATA: Record<string, StudentProgressionProfile>
           { subjectName: 'Discovery Science', score: 84, cohortAvg: 80, gradeLetter: 'A', effort: 'Good' },
           { subjectName: 'Creative Arts & Music', score: 92, cohortAvg: 86, gradeLetter: 'A+', effort: 'Outstanding' },
         ],
-        teacherRemarks: 'Maya has adapted wonderfully to Primary 1 with a delightful love for storytelling.',
+        teacherRemarks: 'Maya has adapted wonderfully to Basic 1 with a delightful love for storytelling.',
         coreCompetencies: [
           { domain: 'Early Numeracy', score: 83, cohortAvg: 79 },
           { domain: 'Phonics Fluency', score: 85, cohortAvg: 81 },
@@ -329,7 +329,7 @@ export const STUDENT_PROGRESSION_DATA: Record<string, StudentProgressionProfile>
           { subjectName: 'Discovery Science', score: 90, cohortAvg: 81, gradeLetter: 'A+', effort: 'Outstanding' },
           { subjectName: 'Creative Arts & Music', score: 97, cohortAvg: 89, gradeLetter: 'A+', effort: 'Outstanding' },
         ],
-        teacherRemarks: 'On track to be recognized as top reader of Primary 1 cohort.',
+        teacherRemarks: 'On track to be recognized as top reader of Basic 1 cohort.',
         coreCompetencies: [
           { domain: 'Early Numeracy', score: 91, cohortAvg: 82 },
           { domain: 'Phonics Fluency', score: 94, cohortAvg: 84 },
@@ -340,11 +340,11 @@ export const STUDENT_PROGRESSION_DATA: Record<string, StudentProgressionProfile>
     ],
   },
 
-  // Ethan Chen (Primary 5B) - STEM Specialist
+  // Ethan Chen (Basic 5) - STEM Specialist
   stu_ethan_03: {
     studentId: 'stu_ethan_03',
     studentName: 'Ethan Chen',
-    className: 'Primary 5B',
+    className: 'Basic 5',
     enrolledYear: '2023',
     growthVelocity: {
       annualScoreDelta: 7.8,

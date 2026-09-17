@@ -280,59 +280,67 @@ export const ParentPerformanceAnalytics: React.FC<ParentPerformanceAnalyticsProp
           {/* Key Metrics Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {/* Metric 1: Current vs Previous Average */}
-            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-                Term Average & Growth
-              </span>
-              <div className="flex items-baseline space-x-2">
-                <span className="text-3xl font-black text-slate-900">{currentAverage}%</span>
-                <span className="text-xs font-bold text-slate-400">vs {previousAverage}% prev</span>
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1 flex flex-col justify-between">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+                  Term Average & Growth
+                </span>
+                <div className="flex items-baseline gap-2 mt-1 flex-wrap">
+                  <span className="text-2xl sm:text-3xl font-black text-slate-900">{currentAverage}%</span>
+                  <span className="text-xs font-bold text-slate-400">vs {previousAverage}% prev</span>
+                </div>
               </div>
-              <div className="flex items-center space-x-1 text-xs font-bold text-emerald-600 pt-1">
+              <div className="flex items-center space-x-1 text-xs font-bold text-emerald-600 pt-2">
                 <TrendingUp className="w-3.5 h-3.5" />
                 <span>Growth Delta: +{growthDelta}% this term</span>
               </div>
             </div>
 
             {/* Metric 2: Class Average Comparison */}
-            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-                Class Average Benchmark
-              </span>
-              <div className="flex items-baseline space-x-2">
-                <span className="text-3xl font-black text-indigo-600">{classAverage}%</span>
-                <span className="text-xs font-bold text-slate-400">Class Mean</span>
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1 flex flex-col justify-between">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+                  Class Average Benchmark
+                </span>
+                <div className="flex items-baseline gap-2 mt-1 flex-wrap">
+                  <span className="text-2xl sm:text-3xl font-black text-indigo-600">{classAverage}%</span>
+                  <span className="text-xs font-bold text-slate-400">Class Mean</span>
+                </div>
               </div>
-              <div className="flex items-center space-x-1 text-xs font-bold text-indigo-700 pt-1">
+              <div className="flex items-center space-x-1 text-xs font-bold text-indigo-700 pt-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                 <span>{comparisonStatus}</span>
               </div>
             </div>
 
             {/* Metric 3: Attendance */}
-            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-                Classroom Attendance
-              </span>
-              <div className="flex items-baseline space-x-2">
-                <span className="text-3xl font-black text-emerald-600">{attendanceRate}%</span>
-                <span className="text-xs font-bold text-slate-400">Verified</span>
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1 flex flex-col justify-between">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+                  Classroom Attendance
+                </span>
+                <div className="flex items-baseline gap-2 mt-1 flex-wrap">
+                  <span className="text-2xl sm:text-3xl font-black text-emerald-600">{attendanceRate}%</span>
+                  <span className="text-xs font-bold text-slate-400">Verified</span>
+                </div>
               </div>
-              <p className="text-xs font-medium text-slate-600 pt-1">
+              <p className="text-xs font-medium text-slate-600 pt-2">
                 {presentCount} sessions present ({lateCount} late)
               </p>
             </div>
 
             {/* Metric 4: Assignment Completion */}
-            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-                Assignment Completion
-              </span>
-              <div className="flex items-baseline space-x-2">
-                <span className="text-3xl font-black text-purple-600">{assignmentCompletionRate}%</span>
-                <span className="text-xs font-bold text-slate-400">Submission</span>
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1 flex flex-col justify-between">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+                  Assignment Completion
+                </span>
+                <div className="flex items-baseline gap-2 mt-1 flex-wrap">
+                  <span className="text-2xl sm:text-3xl font-black text-purple-600">{assignmentCompletionRate}%</span>
+                  <span className="text-xs font-bold text-slate-400">Submission</span>
+                </div>
               </div>
-              <p className="text-xs font-medium text-slate-600 pt-1">
+              <p className="text-xs font-medium text-slate-600 pt-2">
                 {completedAssignmentsCount} of {totalAssignmentsCount} tasks completed
               </p>
             </div>
